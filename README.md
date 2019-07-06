@@ -3,14 +3,14 @@ keras2.1.5+tensorflow1.8+lightgbm2.2.3+optuna0.7.0
 My Library for creating image classification models for Windows(GeForce 1080)  
 
 ## Setup
-- Anaconda 4.4.10:https://www.anaconda.com/distribution/
-- NVIDIA Driver for GeForce 1080:http://www.nvidia.co.jp/Download/index.aspx?lang=jp
-- Visual Studio 2015 Update 3（Visual Studio Community 2015 with Update 3）：https://my.visualstudio.com/Downloads  
-	- ※Custom installation of Visual Studio 2015
-- Visual C ++ Redistributable Package for Visual Studio 2015：https://www.microsoft.com/ja-JP/download/details.aspx?id=48145
-- CUDA Toolkit 9.0:https://developer.nvidia.com/cuda-90-download-archive  
-	- ※Installation execution except "Visual studio integration"
-- cuDNN v7.0.5:https://developer.nvidia.com/rdp/cudnn-download
+- Anaconda 4.4.10: https://www.anaconda.com/distribution/
+- NVIDIA Driver for GeForce 1080: http://www.nvidia.co.jp/Download/index.aspx?lang=jp
+- Visual Studio 2015 Update 3(Visual Studio Community 2015 with Update 3): https://my.visualstudio.com/Downloads  
+	- Custom installation of Visual Studio 2015
+- Visual C ++ Redistributable Package for Visual Studio 2015: https://www.microsoft.com/ja-JP/download/details.aspx?id=48145
+- CUDA Toolkit 9.0: https://developer.nvidia.com/cuda-90-download-archive  
+	- Installation execution except "Visual studio integration"
+- cuDNN v7.0.5: https://developer.nvidia.com/rdp/cudnn-download
 ```bash
 $ conda create -n tfgpu_py36_v3
 $ activate tfgpu_py36_v3
