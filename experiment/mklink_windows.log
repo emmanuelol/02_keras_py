@@ -1,0 +1,4 @@
+# テスト用出力ディレクトリはシンボリックリンクにした
+mklink /D C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\experiment\output_test_optuna D:\work\02_keras_py\experiment\output_test_optuna
+
+mklink /D C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\experiment\01_code_test\output_test D:\work\02_keras_py\experiment\01_code_test\output_test

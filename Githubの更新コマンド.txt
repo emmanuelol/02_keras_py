@@ -1,0 +1,20 @@
+### 新規作成 ###
+# Githubで02_keras_py作成
+https://github.com/riron1206/02_keras_py
+
+# このディレクトリをGitリポジトリにする 
+# バージョン管理を行っていない既存のプロジェクトをGitリポジトリに変換する場合や、空の新規リポジトリを作成して初期化する場合に使用
+$ activate tfgpu_py36_v3
+$ cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py
+$ git init # このディレクトリをGitリポジトリにする .gitディレクトリ作成する
+$ git add --all # 全ファイルアップロード README.mdあげるだけなら git add README.md 
+$ git commit -m "first commit" # コミットの説明文
+$ git remote add origin https://github.com/riron1206/02_keras_py.git # リモートリポジトリに反映させる前に、リモートリポジトリの情報を追加
+$ git push -u origin master # GitHubへプッシュしてリモートリポジトリへ反映させる
+→riron1206
+→shingorider1
+
+### 更新 ###
+$ activate tfgpu_py36_v3
+$ cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py
+$ git push origin master # GitHubへプッシュしてリモートリポジトリへ反映させる
