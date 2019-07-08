@@ -223,7 +223,7 @@ def predict_tta(model, x, TTA='flip'
     # 切り抜き
     if TTA_crop_num > 0 :
         for r_i in range(0, TTA_crop_num):
-            augmentation = albumentations.RandomCrop(TTA_crop_size[0], TTA_crop_size[1], always_apply=True, p=1)
+            augmentation = albumentations.RandomCrop(int(TTA_crop_size[0]), int(TTA_crop_size[1]), always_apply=True, p=1)
             x_list.append(augmentation(**data)['image'])
     # サイズ変更+前処理
     for x in x_list:

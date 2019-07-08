@@ -4,6 +4,47 @@
 from keras import backend as K
 import tensorflow as tf
 
+def smooth_labels(y, smooth_factor=0.1):
+    '''Convert a matrix of one-hot row-vector labels into smoothed versions.
+    label_smoothing：分類問題の正解ラベルの1を0.9みたいに下げ、0ラベルを0.1みたいに上げ、過学習軽減させる。間違っている正解ラベルが混じっているデータセットのときに有効
+    train直前のワンホットラベルにラベルスムージングを適用する
+    https://www.dlology.com/blog/bag-of-tricks-for-image-classification-with-convolutional-neural-networks-in-keras/
+    Args
+        y: matrix of one-hot row-vector labels to be smoothed
+        smooth_factor: label smoothing factor (between 0 and 1)
+    Returns
+        A matrix of smoothed labels.
+    Usage
+        y_train = keras.utils.to_categorical(y_train, num_classes)
+        y_test = keras.utils.to_categorical(y_test, num_classes)
+        print('Before smoothing: {}'.format(y_train[0]))
+        smooth_labels(y_train, .1)
+        print('After smoothing: {}'.format(y_train[0]))
+    '''
+    assert len(y.shape) == 2
+    if 0 <= smooth_factor <= 1:
+        # label smoothing ref: https://www.robots.ox.ac.uk/~vgg/rg/papers/reinception.pdf
+        y *= 1 - smooth_factor
+        y += smooth_factor / y.shape[1]
+    else:
+        raise Exception(
+            'Invalid label smoothing factor: ' + str(smooth_factor))
+    return y
+
+def build_label_smoothing_loss(loss_function=tf.losses.sigmoid_cross_entropy, smooth_factor=0.1):
+    """
+    label_smoothing：分類問題の正解ラベルの1を0.9みたいに下げ、0ラベルを0.1みたいに上げ、過学習軽減させる。間違っている正解ラベルが混じっているデータセットのときに有効
+    tensorflowの分類lossにラベルスムージングを適用する
+    https://stackoverflow.com/questions/55894459/how-to-use-tf-losses-sigmoid-cross-entropy-with-label-smoothing-in-keras
+    Args
+        loss_function:損失関数
+            二値分類の場合:tf.losses.sigmoid_cross_entropy(tensorflow v1.8のloss関数(Lib/site-packages/tensorflow/python/ops/losses/losses_impl.py)にはlabel_smoothing実装されている)
+            多クラス分類の場合:tf.losses.softmax_cross_entropy(tensorflow v1.8のloss関数(Lib/site-packages/tensorflow/python/ops/losses/losses_impl.py)にはlabel_smoothing実装されている)
+        smooth_factor: label smoothing factor (between 0 and 1)
+    """
+    def label_smoothing_loss(y_true, y_pred):
+        return loss_function(y_true, y_pred, label_smoothing=smooth_factor)
+
 # focal loss: 通常の cross entropy loss (CE) を動的に scaling（高い推論確率で正しく推論できているサンプルの損失をCross Entropy Lossより小さく）させる損失関数
 # Focal Loss は - (1-p_t)^γ ln(p_t) のような形
 # Positive-Negative間の不均衡が大きい場合に効くlossらしい.

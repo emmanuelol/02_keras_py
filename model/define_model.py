@@ -75,6 +75,7 @@ from adabound import AdaBound
 # https://qiita.com/koshian2/items/0e40a5930f1aa63a66b9
 sys.path.append( str(current_dir) + '/../Git/OctConv-TFKeras' )
 #import models as oct_wrn
+from oct_conv2d import OctConv2D # load_model(… custom_objects={'OctConv2D':OctConv2D}, compile=False) が必要
 import models_include_top_false as oct_wrn_top_false # 出力層消したの
 
 # githubのEfficientNetをimport
