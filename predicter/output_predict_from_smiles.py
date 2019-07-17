@@ -12,10 +12,12 @@ import shutil
 import xlsxwriter
 import openpyxl
 import matplotlib
-import matplotlib.pyplot as plt
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
 import warnings
 warnings.filterwarnings("ignore")
+
 
 def smi2pred(ifilename, model_path, task_name_list,
             out_dir='tmp',
@@ -159,20 +161,22 @@ def smi2pred(ifilename, model_path, task_name_list,
             ## ---------------
             # --- 横棒グラフ ---
             series_inv = series[series.index[::-1]] # seriesのindexの順番逆にする（plot.barhはindex逆順にしないとだめ）#df_T = df_pred_score.loc[:,df_pred_score.columns[::-1]].T
-            series_inv[:-2].plot.barh(alpha=0.6, figsize=(8,8*len(task_name_list)//15))#df_T.loc[:-2,index].T.plot.barh(alpha=0.6, figsize=(8,8*len(task_name_list)//15))
+            series_inv[:-2].plot.barh(alpha=0.6, figsize=(8,8*len(task_name_list)//15), color='blue')#df_T.loc[:-2,index].T.plot.barh(alpha=0.6, figsize=(8,8*len(task_name_list)//15))
             plt.xlim([0,1])
             plt.xlabel('Active predict score')
             # -----------------
             plt.title(series['SMILES'].values[0], size=12)
+            plt.grid(True) # グリッド線書く
             plt.savefig(series['img_dir'].values[0]+'/'+str(Path(series['img_dir'].values[0]).stem)+'_score_bar.jpg', bbox_inches="tight")
             plt.clf()
 
         # 全化合物についてスコアのヒストグラム作成
-        df_pred_score.plot(bins=100, alpha=0.5, kind='hist')# , figsize=(16,4)
+        df_pred_score.plot(bins=100, alpha=0.5, kind='hist')
         plt.xlim([0,1])
         plt.xlabel('Active predict score')
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=12) # 凡例を枠外に書く
         plt.title('All compounds', size=12)
+        plt.grid(True) # グリッド線書く
         plt.savefig(out_dir+'/predict_hist.jpg', bbox_inches="tight")
         plt.clf()
 
@@ -186,7 +190,6 @@ def cut_NPI_1class_GAR_2class(NPI_csv, GAR_csv):
     """
     NPI_task_name_list = cut_1class(NPI_csv)
     GAR_task_name_list = cut_2class(GAR_csv)
-
     NPI_task_name_list.extend(GAR_task_name_list)
     return NPI_task_name_list
 
@@ -227,44 +230,68 @@ def cut_1class(csv):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--output_dir", type=str, required=True,
-                    help="output dir path")
-    ap.add_argument("-m", "--model_path", type=str, default='/home/aaa00162/jupyterhub/notebook/H3-050/Submit/DL/experiment/output_class_NPI.Pharmacology.represent_IC50_scaffold/best_model.h5',
-                    help="model h5 file path (ex. /home/aaa00162/jupyterhub/notebook/H3-050/Submit/DL/experiment/output_class_NPI.Pharmacology.represent_IC50_scaffold/best_model.h5)")
-    ap.add_argument("-ln", "--layer_name", type=str, default='mixed10',
-                    help="gradcam model layer name")
+                    help="output dir path.")
     ap.add_argument("-s", "--smiles_path", type=str, required=True,
-                    help="SMILES file path")
-    ap.add_argument("-mt", "--model_thema", type=str, default='class',#required=True, choices=['class', 'regression'],
-                    help="model theme 'class'")#, 'regression'")
-    ap.add_argument("-t", "--thema", type=str, required=True, choices=['NPI', 'GAR', 'kinase', 'NPI_GAR', 'cut_NPI_1class', 'cut_GAR_2class', 'cut_NPI_1class_GAR_2class'],
-                    help="theme codes 'NPI', 'GAR', 'kinase'")
+                    help="SMILES file path.")
+    ap.add_argument("-mt", "--model_type", type=str, default='class',
+                    help="model type (ex. 'class').")#, 'regression'")
+    ap.add_argument("-t", "--thema", type=str, required=True, choices=['NPI', 'GAR', 'kinase', 'NPI_GAR'],#['NPI', 'GAR', 'kinase', 'NPI_GAR', 'cut_NPI_1class', 'cut_GAR_2class', 'cut_NPI_1class_GAR_2class'],
+                    help="theme codes (ex. 'NPI', 'GAR', 'kinase', 'NPI_GAR').")
     ap.add_argument("-mc", "--method_category", type=str, default='Pharmacology',
-                    help="method category names")
+                    help="method category names.")
     ap.add_argument("-mk", "--method_kind", type=str, default='IC50',
-                    help="method kind names")
-    ap.add_argument("-gt", "--grad_threshold", type=float, default=0.5,#default=-1.0,
-                    help="Grad-Cam predict threshold score")
+                    help="method kind names.")
+    ap.add_argument("-gt", "--grad_threshold", type=float, default=0.5,
+                    help="threshold to execute Grad-Cam.")
     ap.add_argument("-gp", "--is_gradcam_plus", action='store_const', const=True, default=False,
-                    help="Grad-Cam++ flag")
+                    help="Grad-Cam++ flag.")
     ap.add_argument("-tta", "--is_TTA", action='store_const', const=True, default=False,
-                    help="TTA(flip) flag")
+                    help="TTA(flip) flag.")
     ap.add_argument("-cut_NPI", "--is_cut_NPI", action='store_const', const=True, default=False,
-                    help="Flag that displays only GAR when NPI + GAR")
+                    help="flag that displays only GAR when NPI + GAR.")
+    ap.add_argument("-m", "--model_path", type=str,
+                    help="used to specify model file path (ex. /home/aaa00162/jupyterhub/notebook/H3-050/Submit/DL/experiment/output_class_kinase_result_IC50_scaffold/best_model_val_acc.h5).")
+    ap.add_argument("-ln", "--layer_name", type=str,
+                    help="used to specify Grad-Cam CNN layer name (ex. 'mixed10').")
     args = vars(ap.parse_args())
 
-    data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
-    model_path = args['model_path']
-    layer_name = args['layer_name']
-    run_gradcam_task_idx_list = None
+    run_gradcam_task_idx_list = None # Grad-Cam実行するtaskid記録用変数。Noneなら全taskでGrad-Cam実行
+    is_sparkline = True # エクセルのスパークラインむだだから描画するか
 
-    if args['model_thema'] == 'class':
-        #print(args['model_thema'], args['thema'], args['method_category'], args['method_kind'])
+    if args['model_type'] == 'class':
+        #print(args['model_type'], args['thema'], args['method_category'], args['method_kind'])
+        ####------------------ best modelではなかった分類taskのクラスcutしないNPI、GAR、NPI_GARの条件 ------------------###
+        #if args['thema'] == 'NPI' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+        #    data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
+        #    task_name_list = list(pd.read_csv(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv').columns[4:-2])
+        #    assay_num = 3
+        #    class_num = 5
+#
+        #if args['thema'] == 'GAR' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+        #    data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
+        #    task_name_list = list(pd.read_csv(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv').columns[4:-2])
+        #    assay_num = 16
+        #    class_num = 5
+#
+        #if args['thema'] == 'NPI_GAR' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+        #    data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
+        #    NPI_task_name_list = list(pd.read_csv(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv').columns[4:-2])
+        #    GAR_task_name_list = list(pd.read_csv(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv').columns[4:-2])
+        #    NPI_task_name_list.extend(GAR_task_name_list)
+        #    task_name_list = NPI_task_name_list
+        #    assay_num = 3+16
+        #    class_num = 5
+        #    # NPI+GARからNPIタスクを除く場合
+        #    if args['is_cut_NPI'] == True:
+        #        assay_num = 16
+        #        class_num = 5
+        #        GAR_task_name_list = list(pd.read_csv(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv').columns[4:-2])
+        #        NPI_task_name_list = list(pd.read_csv(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv').columns[4:-2])
+        #        run_gradcam_task_idx_list = list(range(len(NPI_task_name_list), len(task_name_list)))
+
+        ###------------------ best modelのpathハードコードしている分類taskのクラスcutするNPI、GAR、NPI_GARの条件 ------------------###
         if args['thema'] == 'NPI' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
-            task_name_list = list(pd.read_csv(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv').columns[4:-2])
-            assay_num = 3
-            class_num = 5
-
-        if args['thema'] == 'cut_NPI_1class' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+            data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
             task_name_list = cut_1class(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv')
             assay_num = 3
             class_num = 5-1
@@ -273,11 +300,7 @@ def main():
             layer_name = 'block14_sepconv2_act'
 
         if args['thema'] == 'GAR' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
-            task_name_list = list(pd.read_csv(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv').columns[4:-2])
-            assay_num = 16
-            class_num = 5
-
-        if args['thema'] == 'cut_GAR_2class' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+            data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
             task_name_list = cut_2class(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv')
             assay_num = 16
             class_num = 5-2
@@ -285,25 +308,12 @@ def main():
             model_path = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/DL/experiment/output_class_GAR.Pharmacology.represent_IC50_scaffold_3task/best_model.h5'
             layer_name = 'mixed10'
 
-        if args['thema'] == 'kinase' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
-            task_name_list = list(pd.read_csv(data_dir+'kinase/scaffold/class/kinase.csv').columns[4:-2])
-            assay_num = 60
-            class_num = 5
-
         if args['thema'] == 'NPI_GAR' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
-            NPI_task_name_list = list(pd.read_csv(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv').columns[4:-2])
-            GAR_task_name_list = list(pd.read_csv(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv').columns[4:-2])
-            NPI_task_name_list.extend(GAR_task_name_list)
-            task_name_list = NPI_task_name_list
-            assay_num = 3+16
-            class_num = 5
-
-        if args['thema'] == 'cut_NPI_1class_GAR_2class' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+            data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess/data/dataset/'
             task_name_list = cut_NPI_1class_GAR_2class(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv',
                                                        data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv')
             assay_num = 3+16
             class_num = 4+3
-
             # NPI+GARからNPIタスクを除く場合
             if args['is_cut_NPI'] == True:
                 assay_num = 16
@@ -311,12 +321,22 @@ def main():
                 GAR_task_name_list = cut_2class(data_dir+'GAR.Pharmacology.represent_IC50/scaffold/class/GAR.Pharmacology.csv')
                 NPI_task_name_list = cut_1class(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/class/NPI.Pharmacology.csv')
                 run_gradcam_task_idx_list = list(range(len(NPI_task_name_list), len(task_name_list)))
-
-            # cut_NPI_1class_GAR_2class best(InceptionV3) NPI,GAR単独モデルの方がAUC若干高い
+            # cut_NPI_1class_GAR_2class best(InceptionV3) NPI,GAR単独モデルの方がmeanAUC若干高い
             model_path = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/DL/tuning/output_optuna_class_NPI_GAR_cut_task.Pharmacology.represent_IC50_scaffold_roc/best_trial_loss.h5'
             layer_name = 'mixed10'
 
-    #if args['model_thema'] == 'regression':
+        if args['thema'] == 'kinase' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
+            data_dir = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/preprocess_v2/data/dataset/'
+            task_name_list = list(pd.read_csv(data_dir+'kinase_result/scaffold/class/kinase_result.csv').columns[4:-2])
+            assay_num = 61
+            class_num = 1
+            # kinase_result best(InceptionV3)
+            model_path = '/home/aaa00162/jupyterhub/notebook/H3-050/Submit/DL/experiment/output_class_kinase_result_IC50_scaffold/best_model.h5'
+            layer_name = 'mixed10'
+            is_sparkline = False # kinase_resultはタスクごとのクラスは1つ(<=10uM)だけ。エクセルのスパークラインむだだから描画させない
+
+    #if args['model_type'] == 'regression':
+    #    ###------------------ 回帰taskのNPI、GAR、NPI_GARの条件 ------------------###
     #    if args['thema'] == 'NPI' and args['method_category'] == 'Pharmacology' and args['method_kind'] == 'IC50':
     #        task_name_list = list(pd.read_csv(data_dir+'NPI.Pharmacology.represent_IC50/scaffold/regression/NPI.Pharmacology.csv').columns[4:-2])
     #        task_name_list = [n.replace('.1', '') for n in task_name_list] # 回帰のcsvは列名に「.1」がついてるので消す
@@ -344,7 +364,17 @@ def main():
     #        assay_num = 3+16
     #        class_num = 5
 
-    df_pred_score = smi2pred(args['smiles_path'], model_path, task_name_list,
+    # 引数で指定したモデル使う場合
+    if args['model_path'] is not None:
+        model_path = args['model_path']
+        print('model_path:', model_path)
+    if args['layer_name'] is not None:
+        layer_name = args['layer_name']
+        print('layer_name:', layer_name)
+
+    df_pred_score = smi2pred(args['smiles_path'],
+                            model_path,
+                            task_name_list,
                             out_dir=args['output_dir'],
                             shape=[331, 331, 3], layer_name=layer_name,
                             grad_threshold=args['grad_threshold'], is_gradcam_plus=args['is_gradcam_plus'],
@@ -361,7 +391,8 @@ def main():
         task_name_list = GAR_task_name_list
 
     # ---------------------- エクセル編集 ---------------------- #
-    writer = pd.ExcelWriter(Path(args['smiles_path']).stem+'_predict.xlsx', engine='xlsxwriter')
+    #writer = pd.ExcelWriter(Path(args['smiles_path']).stem+'_predict.xlsx', engine='xlsxwriter') # カレントディレクトリに予測結果エクセル出力
+    writer = pd.ExcelWriter(args['output_dir']+'/'+str(Path(args['smiles_path']).stem)+'_predict.xlsx', engine='xlsxwriter') # 出力先dirに予測結果エクセル出力
     df_pred_score.to_excel(writer, sheet_name='predict') # MultiIndexでは index=False 使えない
     workbook  = writer.book
     worksheet = writer.sheets['predict']
@@ -388,7 +419,7 @@ def main():
     worksheet.conditional_format('D4:'+max_col+str(df_pred_score.shape[0]+header_num), {'type': 'data_bar'})
 
     # テーマごとのタスク数一致するときだけスパークラインの棒グラフ列作る
-    if assay_num*class_num == len(task_name_list):
+    if assay_num*class_num == len(task_name_list) and is_sparkline == True:
         # スパークラインの棒グラフ
         ##worksheet.add_sparkline(max_col_plus+str(i+5), {'range':'predict!'+score_col+str(i+4)+':'+max_col+str(i+4),'type':'column'}) # 1化合物について書く場合
         for i in range(df_pred_score.shape[0]):
@@ -414,7 +445,7 @@ def main():
 
     # ハイパーリンク
     for i,dir in enumerate(df_pred_score['img_dir']):
-        worksheet.write_url('C'+str(i+header_num+1), dir)
+        worksheet.write_url('C'+str(i+header_num+1), str(Path(dir).stem))#dir)
     # オートフィルタ
     worksheet.autofilter('A3:'+max_col+str(df_pred_score.shape[1]+header_num))
     # 全化合物についてスコアのヒストグラム画像挿入
