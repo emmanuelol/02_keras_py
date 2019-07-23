@@ -59,3 +59,19 @@ def df_box_plot(df, title='', xlabel='column', outputdir='describe', figsize=Non
     plt.savefig(os.path.join(outputdir, title+'.png')) # グラフの保存
     plt.show() # グラフの表示
     plt.close('all') # グラフクリア。繰り返しplt.figure()を実行時に出る警告対策
+
+def plot_barh_series(series, title=None, xlabel=None, xlim=None, out_png=None, color='blue'):
+    """ seriesの横棒グラフplot """
+    series_inv = series[series.index[::-1]] # seriesのindexの順番逆にする（plot.barhはindex逆順にしないとだめ）
+    series_inv.plot.barh(alpha=0.6, figsize=(8,8*series.shape[0]//15), color=color)
+    plt.grid(True)
+    if title is not None:
+        plt.title(title, size=12)
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if xlim is not None:
+        plt.xlim(xlim)
+    if out_png is not None:
+        plt.savefig(out_png, bbox_inches="tight")
+    plt.show()
+    plt.clf()

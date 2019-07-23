@@ -85,6 +85,29 @@ def resize_np_Nearest_Neighbor(img_np, n_resize):
     """
     return img_np.repeat(n_resize, axis=0).repeat(n_resize, axis=1)
 
+
+def ipywidgets_show_img(img_path_list):
+    """
+    ipywidgetsでインタラクティブに画像表示
+    https://github.com/pfnet-research/chainer-chemistry/blob/master/examples/tox21/tox21_dataset_exploration.ipynb
+    """
+    from ipywidgets import interact
+    import matplotlib.pyplot as plt
+    from PIL import Image
+    import numpy as np
+
+    def view_image(index):
+        img_path = img_path_list[index]
+        print('index={}, img_path={}'.format(index, img_path))
+        img = Image.open(img_path)
+        img_array = np.asarray(img)
+        #plt.figure(figsize=(9, 9))
+        plt.imshow(img_array)
+        #if is_grayscale == True:
+        #    plt.gray()
+        plt.show()
+    interact(view_image, index=(0, len(img_path_list) - 1))
+
 if __name__ == '__main__':
     print('util.py: loaded as script file')
 else:

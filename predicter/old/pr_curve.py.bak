@@ -280,8 +280,6 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
     Return:
         df_plot_data: df_plot_data: plot画像のデータフレーム( thresholds, precision, recall, f1, queue_rate )
         f1_max_threshold: f1最大の閾値 (f1最大の閾値=df_plot_dataのf1列のmax値)
-        precision_max_threshold: precision最大の閾値 (f1最大の閾値=df_plot_dataのprecision列のmax値)
-        recall_max_threshold: recall最大の閾値 (f1最大の閾値=df_plot_dataのrecall列のmax値)
     """
     import seaborn as sns
     from sklearn.metrics import precision_recall_curve
@@ -339,13 +337,8 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
 
     # f1最大の閾値
     f1_max_threshold = df_plot_data.sort_values(by=['f1'], ascending=False)['thresholds'].values[0]
-    # precision最大の閾値
-    precision_max_threshold = df_plot_data.sort_values(by=['precision'], ascending=False)['thresholds'].values[0]
-    # recall最大の閾値
-    recall_max_threshold = df_plot_data.sort_values(by=['recall'], ascending=False)['thresholds'].values[0]
 
-    return df_plot_data, f1_max_threshold, precision_max_threshold, recall_max_threshold
-
+    return df_plot_data, f1_max_threshold
 
 if __name__ == '__main__':
     print('pr_curve.py: loaded as script file')
