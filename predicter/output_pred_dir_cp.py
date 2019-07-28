@@ -10,6 +10,8 @@ import argparse
 import matplotlib
 matplotlib.use('Agg')
 import keras
+import shutil
+from tqdm import tqdm
 
 # 自作モジュールimport
 import pathlib
@@ -17,6 +19,7 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.append( str(current_dir) + '/../' )
 from predicter import base_predict
 from model import define_model
+from dataset import util
 
 def main():
     ap = argparse.ArgumentParser()
@@ -26,6 +29,8 @@ def main():
                     help="img dir path (ex. D:\iPhone_pictures\2019-06")
     ap.add_argument("-m", "--model_dir", type=str, default='default', nargs='*', # nargs='*'を指定すると可変長で複数個をリスト形式で受け取ることができます
                     help="model files path")
+    ap.add_argument("-m_d", "--merge_dir", type=str, default=r'D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge',
+                    help="merge dir")
     args = vars(ap.parse_args())
 
     # modelファイルのしていなければこの2モデル使う
@@ -55,6 +60,14 @@ def main():
     base_predict.pred_dir_cp(data_dir = args['img_data_dir'] # 入力ディレクトリ
                             , pred_output_dir = args['pred_output_dir'] # 出力先ディレクトリ
                             , model = models)
+    # mergeディレクトリに全コピーする
+    if args['merge_dir'] is not None:
+        img_data_dir_paths = util.get_jpg_png_path_in_dir(args['pred_output_dir'])
+        for p in tqdm(img_data_dir_paths):
+            out_dir = os.path.join(args['merge_dir'], pathlib.Path(p).parent.name)
+            os.makedirs(out_dir, exist_ok=True)
+            shutil.copyfile(p, os.path.join(out_dir, str(pathlib.Path(p).parent.parent.name +'_'+ pathlib.Path(p).name)))
+
 
 if __name__ == '__main__':
     main()
