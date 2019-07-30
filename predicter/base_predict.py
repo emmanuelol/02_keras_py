@@ -50,6 +50,8 @@ def pred_classes_generator(model, generator, steps=None, classes_list=None):
     Return:
         データフレームでファイル名と予測ラベル返す
     """
+    if steps is None:
+        steps = len(generator)
     # predict_generator でgenerator から予測確率だせる
     # generator をreset() せずにpredict_generator 実行すると順番がグチャグチャでpredict してしまうらしい
     # https://medium.com/@vijayabhaskar96/tutorial-image-classification-with-keras-flow-from-directory-and-generators-95f75ebe5720

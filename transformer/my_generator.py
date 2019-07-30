@@ -44,7 +44,7 @@ validation_generator = valid_datagen.flow_from_directory(
 """
 
 import numpy as np
-from keras.preprocessing.image import ImageDataGenerator
+#from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
 from keras.preprocessing import image
 
 import os, sys
@@ -60,6 +60,9 @@ import imgaug
 # albumentations はimgaug をimport しておかないとimport できない
 sys.path.append( str(current_dir) + '/../Git/albumentations' )
 import albumentations
+
+sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
+from keras_preprocessing.image import ImageDataGenerator
 
 def get_datagen(rescale=1.0/255):
     """画像_前処理実行"""
@@ -92,7 +95,7 @@ class MyImageDataGenerator(ImageDataGenerator):
                  , vertical_flip = False # vertical_flip=True とした場合、ランダムに上下反転
                  , rescale = 1. / 255 # 各変換を行う前に画素値を rescale 倍する
                  , preprocessing_function = None # コールバック関数による前処理。rescaleより前に一番始めに実行される
-                 , data_format = None # "channels_last" のままにする
+                 , data_format = 'channels_last' # "channels_last" のままにする
                  , validation_split = 0.0 # 0.1に設定するとデータの最後の10％が検証のために利用される
                  , random_crop = None # [224,224]とすると[224,224]のサイズでランダムに画像切り抜く。使わない場合はNone
                  , mix_up_alpha = 0.0 # mixupの混ぜ具合。使わない場合は0.0にする。使う場合は0.2とか

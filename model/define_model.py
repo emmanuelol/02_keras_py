@@ -505,6 +505,65 @@ def get_adabound(lr=0.001, final_lr=0.1, beta_1=0.9, beta_2=0.999, gamma=1e-3, e
         print("It can not be imported because there is no adabound library.Please obtain the adabound library from 'https://github.com/titu1994/keras-adabound'.")
 
 
+def get_attention_ptmodel(ptmodel, shape, num_classes, activation, ptmodel_trainable=False):
+    """
+    imagenetの学習済みモデルにattentionレイヤーつける
+    https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook
+    Args:
+        ptmodel: imagenetの学習済みモデル
+                 from keras.applications.inception_v3 import InceptionV3 as PTModel
+                 とかでimagenetの学習済みモデルをimportしてPTModelを渡せばよい
+        shape: 入力層のサイズ.[331, 331, 3]とか.imagenetの学習済みモデル使うからchanel=3でないとエラーになる
+        num_classes: 出力層のサイズ.15とか
+        activation: 出力層の活性化関数.'sigmoid'とか
+        ptmodel_trainable: ptmodelの重み学習させるか.Trueなら学習させる
+    Returns:
+        imagenetの学習済みモデルのお尻にattentionレイヤーを付けたモデルオブジェクト
+    Usage:
+        from keras.applications.inception_v3 import InceptionV3 as PTModel
+        retina_model = get_attention_ptmodel(PTModel, shape, num_classes, activation, ptmodel_trainable=True)
+    """
+    from keras.layers import GlobalAveragePooling2D, Dense, Dropout, Flatten, Input, Conv2D, multiply, Lambda
+    from keras.models import Model
+    from keras.layers import BatchNormalization
+
+    in_lay = Input(shape)
+    base_pretrained_model = PTModel(input_tensor=in_lay, include_top = False, weights = 'imagenet')
+    base_pretrained_model.trainable = ptmodel_trainable
+    pt_depth = base_pretrained_model.get_output_shape_at(0)[-1]
+    pt_features = base_pretrained_model(in_lay)
+    bn_features = BatchNormalization()(pt_features)
+
+    # here we do an attention mechanism to turn pixels in the GAP on an off
+    attn_layer = Conv2D(64, kernel_size = (1,1), padding = 'same', activation = 'relu')(Dropout(0.5)(bn_features))
+    attn_layer = Conv2D(16, kernel_size = (1,1), padding = 'same', activation = 'relu')(attn_layer)
+    attn_layer = Conv2D(8, kernel_size = (1,1), padding = 'same', activation = 'relu')(attn_layer)
+    attn_layer = Conv2D(1,
+                        kernel_size = (1,1),
+                        padding = 'valid',
+                        activation = 'sigmoid')(attn_layer)
+
+    # fan it out to all of the channels
+    up_c2_w = np.ones((1, 1, 1, pt_depth))
+    up_c2 = Conv2D(pt_depth, kernel_size = (1,1), padding = 'same',
+                   activation = 'linear', use_bias = False, weights = [up_c2_w])
+    up_c2.trainable = False
+    attn_layer = up_c2(attn_layer)
+    mask_features = multiply([attn_layer, bn_features])
+    gap_features = GlobalAveragePooling2D()(mask_features)
+    gap_mask = GlobalAveragePooling2D()(attn_layer)
+
+    # to account for missing values from the attention model
+    gap = Lambda(lambda x: x[0]/x[1], name = 'RescaleGAP')([gap_features, gap_mask])
+    gap_dr = Dropout(0.25)(gap)
+    dr_steps = Dropout(0.25)(Dense(128, activation = 'relu')(gap_dr))
+    out_layer = Dense(num_classes, activation = activation)(dr_steps)
+    retina_model = Model(inputs = [in_lay], outputs = [out_layer])
+    retina_model.summary()
+
+    return retina_model
+
+
 def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
                    , momentum=0.9, nesterov=True # SGD
                    , rmsprop_rho=0.9#, epsilon=None # RMSprop

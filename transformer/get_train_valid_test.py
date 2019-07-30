@@ -20,9 +20,11 @@ data_manager_cls = get_train_valid_test.LabeledDataset(shape, batch_size)
 """
 import sys
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import keras
 from keras.preprocessing import image
-from keras.preprocessing.image import ImageDataGenerator
+#from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
 import sklearn
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
@@ -34,6 +36,9 @@ current_dir = pathlib.Path(__file__).resolve().parent # このファイルのデ
 sys.path.append( str(current_dir) + '/../Git/mixup-generator' )
 from mixup_generator import MixupGenerator
 from random_eraser import get_random_eraser
+
+sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
+from keras_preprocessing.image import ImageDataGenerator
 
 # 自作モジュールimport
 from . import my_generator
@@ -89,6 +94,53 @@ def balance_class_by_over_sampling(X, y): # Naive: all sample has equal weights
     Xidx_resampled, y_cls_resampled = RandomOverSampler(ratio=flat_ratio, random_state=42).fit_sample(Xidx, y_cls)
     sampled_index = [idx[0] for idx in Xidx_resampled]
     return np.array([X[idx] for idx in sampled_index]), np.array([y[idx] for idx in sampled_index])
+
+
+def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, dict_ratio, is_over_sampling_type=True, random_state=71, is_plot=True):
+    """ imblearnでunder/over_sampling（各クラスのサンプル数を全クラスの最小/最大数になるまで減らす/増やす）
+    Arges:
+        X: 説明変数（numpy型の画像パス:np.array[a.img,b.img,…]や、numpy型の画像データ:[[0.2554,0.59285,…][…]]みたいなの）
+        y: 目的変数（numpy型のクラスidのラベル。np.array[4,0,1,2,…]みたいなの）
+        dict_ratio: {0:200, 1:300, 2:500, …}のようにクラスid:クラスidのサンプル数の辞書
+                    RandomUnderSampler: 各クラスのサンプル数が一番数が少ないクラスの数になる（この例だと{0:200, 1:200, 2:200, …}になる）
+                    RandomOverSampler:  各クラスのサンプル数が一番数が多いクラスの数になる（この例だと{0:500, 1:500, 2:500, …}になる
+        is_over_sampling_type: TrueならRandomOverSampler. FalseならRandomUnderSampler
+        random_state: under/over_samplingでつかう乱数シード
+        is_plot: Trueならunder/over_sampling後の各クラスの分布を棒グラフで可視化する
+    Returns:
+        under_sampling後のX, y
+    Usage:
+        dict_ratio = {0:pd.Series(y_train[:,0]).value_counts()[1.0], 1:pd.Series(y_train[:,0]).value_counts()[1.0]}
+        X_resampled, y_resampled = imblearn_under_over_sampling(np.array(train_files), y_train, dict_ratio, is_over_sampling_type=False, is_plot=True)
+    """
+    from imblearn.under_sampling import RandomUnderSampler
+    from imblearn.over_sampling import RandomOverSampler
+
+    def _imblearn_sampling(X, y, dict_ratio, is_over_sampling_type, random_state, is_plot):
+        if is_over_sampling_type == True:
+            imblearn_func = RandomOverSampler
+        else:
+            imblearn_func = RandomUnderSampler
+        ros = imblearn_func(ratio = dict_ratio, random_state=random_state)
+        X_resampled, y_resampled = ros.fit_sample(pd.DataFrame(X), y)
+
+        if is_plot == True:
+            print('X.shape y.shape:', X.shape, y.shape)
+            print('X_resampled.shape y_resampled.shape:', X_resampled.shape, y_resampled.shape)
+            #print(pd.Series(X_resampled[:,0]).value_counts().head())
+            if is_over_sampling_type == True:
+                count = pd.Series(y_resampled).value_counts()
+            else:
+                count = pd.Series(y_resampled[:,0]).value_counts()
+            print('y_resampled.value_counts():')
+            print(count)
+            count.plot.bar()
+            plt.title(u'y_resampled.value_counts()')
+
+        return X_resampled, y_resampled
+
+    return _imblearn_sampling(X, y, dict_ratio, is_over_sampling_type, random_state, is_plot)
+
 
 ### Dataset management class
 class LabeledDataset:
@@ -250,6 +302,61 @@ class LabeledDataset:
             self.test_gen = None
 
         return self.train_gen, self.valid_gen, self.test_gen
+
+    def create_my_generator_flow_from_dataframe(self
+                                                , x_col, y_col
+                                                , traindf
+                                                , train_data_dir
+                                                , classes=None
+                                                , validation_split=0.0
+                                                , color_mode='rgb', class_mode='categorical'
+                                                , seed=42
+                                                , my_IDG_options={}):
+        """
+        my_generator.MyImageDataGeneratorクラスからflow_from_dataframe()で
+        train,validation,test setのGenerator作成
+        x_col, y_colはtraindfのファイル名列（ディレクトリ名はいらない。ファイル名(*.jpg)だけ）とラベル列（ラベルはone-hot前）
+        """
+        print('my_IDG_options:', my_IDG_options)
+
+        if validation_split > 0.0:
+            # 訓練画像水増し（Data Augmentation）
+            train_datagen = my_generator.MyImageDataGenerator(**my_IDG_options, validation_split=validation_split)
+        else:
+            train_datagen = my_generator.MyImageDataGenerator(**my_IDG_options)
+
+        self.train_gen = train_datagen.flow_from_dataframe(
+            traindf,
+            directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+            x_col=x_col,
+            y_col=y_col,
+            subset="training",
+            target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
+            color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+            classes=classes, # 分類クラス名リスト
+            class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+            batch_size=self.train_batch_size, # バッチごとにジェネレータから生成される画像の数
+            seed=seed, # 乱数シード
+            shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+        )
+        if validation_split > 0.0:
+            self.valid_gen = train_datagen.flow_from_dataframe(
+                traindf,
+                directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+                x_col=x_col,
+                y_col=y_col,
+                subset="validation",
+                target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
+                color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+                classes=classes, # 分類クラス名リスト
+                class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+                batch_size=self.valid_batch_size, # バッチごとにジェネレータから生成される画像の数
+                seed=seed, # 乱数シード
+                shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+            )
+        else:
+            self.valid_gen = None
+        return self.train_gen, self.valid_gen
 
     def train_steps_per_epoch(self):
         """fit_generatorで指定するtrainのsteps_per_epoch"""
