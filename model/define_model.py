@@ -542,6 +542,9 @@ def get_attention_ptmodel(ptmodel, shape, num_classes, activation, ptmodel_train
                         kernel_size = (1,1),
                         padding = 'valid',
                         activation = 'sigmoid')(attn_layer)
+    # ↑predictでattentionレイヤー可視化したいときはこの Conv2D(1 の層のoutputを可視化する。
+    # outputのshapeが(None, 14, 14, 1)になるので画像として可視化できる。
+    # 詳細は https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook 確認すること
 
     # fan it out to all of the channels
     up_c2_w = np.ones((1, 1, 1, pt_depth))
