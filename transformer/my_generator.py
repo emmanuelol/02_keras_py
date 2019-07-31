@@ -349,6 +349,24 @@ class MyImageDataGenerator(ImageDataGenerator):
             # 返り値
             yield self.custom_process(batches)
 
+    def flow_from_dataframe(self, dataframe,
+                            directory=None, x_col="filename", y_col="class", weight_col=None,
+                            target_size=(256, 256), color_mode='rgb', classes=None,
+                            class_mode='categorical', batch_size=32, shuffle=True,
+                            seed=None, save_to_dir=None, save_prefix='', save_format='png',
+                            subset=None, interpolation='nearest', validate_filenames=True):
+        # 親クラスのflow_from_dataframe
+        print('color_mode', color_mode)
+        batches = super().flow_from_dataframe(dataframe, directory, x_col, y_col, weight_col,
+                                              target_size, color_mode, classes,
+                                              class_mode, batch_size, shuffle,
+                                              seed, save_to_dir, save_prefix, save_format,
+                                              subset, interpolation, validate_filenames)
+        # 拡張処理
+        while True:
+            # 返り値
+            yield self.custom_process(batches)
+
 if __name__ == '__main__':
     print('my_generator.py: loaded as script file')
 else:

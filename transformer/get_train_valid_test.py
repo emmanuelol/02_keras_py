@@ -305,8 +305,10 @@ class LabeledDataset:
 
     def create_my_generator_flow_from_dataframe(self
                                                 , x_col, y_col
-                                                , traindf
+                                                , train_df
                                                 , train_data_dir
+                                                , valid_df=None
+                                                , valid_data_dir=None
                                                 , classes=None
                                                 , validation_split=0.0
                                                 , color_mode='rgb', class_mode='categorical'
@@ -315,7 +317,7 @@ class LabeledDataset:
         """
         my_generator.MyImageDataGeneratorクラスからflow_from_dataframe()で
         train,validation,test setのGenerator作成
-        x_col, y_colはtraindfのファイル名列（ディレクトリ名はいらない。ファイル名(*.jpg)だけ）とラベル列（ラベルはone-hot前）
+        x_col, y_colはtrain_dfのファイル名列（ディレクトリ名はいらない。ファイル名(*.jpg)だけ）とラベル列（ラベルはone-hot前）
         """
         print('my_IDG_options:', my_IDG_options)
 
@@ -325,23 +327,24 @@ class LabeledDataset:
         else:
             train_datagen = my_generator.MyImageDataGenerator(**my_IDG_options)
 
-        self.train_gen = train_datagen.flow_from_dataframe(
-            traindf,
-            directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
-            x_col=x_col,
-            y_col=y_col,
-            subset="training",
-            target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
-            color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
-            classes=classes, # 分類クラス名リスト
-            class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
-            batch_size=self.train_batch_size, # バッチごとにジェネレータから生成される画像の数
-            seed=seed, # 乱数シード
-            shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
-        )
         if validation_split > 0.0:
+            self.train_gen = train_datagen.flow_from_dataframe(
+                train_df,
+                directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+                x_col=x_col,
+                y_col=y_col,
+                subset="training",
+                target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
+                color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+                classes=classes, # 分類クラス名リスト
+                class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+                batch_size=self.train_batch_size, # バッチごとにジェネレータから生成される画像の数
+                seed=seed, # 乱数シード
+                shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+            )
+            
             self.valid_gen = train_datagen.flow_from_dataframe(
-                traindf,
+                train_df,
                 directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
                 x_col=x_col,
                 y_col=y_col,
@@ -354,7 +357,50 @@ class LabeledDataset:
                 seed=seed, # 乱数シード
                 shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
             )
+        elif valid_df is not None and valid_data_dir is not None:
+            self.train_gen = train_datagen.flow_from_dataframe(
+                train_df,
+                directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+                x_col=x_col,
+                y_col=y_col,
+                target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
+                color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+                classes=classes, # 分類クラス名リスト
+                class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+                batch_size=self.train_batch_size, # バッチごとにジェネレータから生成される画像の数
+                seed=seed, # 乱数シード
+                shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+            )
+
+            valid_datagen = my_generator.get_datagen(rescale=my_IDG_options['rescale'])
+            self.valid_gen = valid_datagen.flow_from_dataframe(
+                valid_df,
+                directory=valid_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+                x_col=x_col,
+                y_col=y_col,
+                target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
+                color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+                classes=classes, # 分類クラス名リスト
+                class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+                batch_size=self.valid_batch_size, # バッチごとにジェネレータから生成される画像の数
+                seed=seed, # 乱数シード
+                shuffle=False # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+            )
         else:
+            self.train_gen = train_datagen.flow_from_dataframe(
+                train_df,
+                directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+                x_col=x_col,
+                y_col=y_col,
+                target_size=(self.shape[0], self.shape[1]), # すべての画像はこのサイズにリサイズ
+                color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+                classes=classes, # 分類クラス名リスト
+                class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+                batch_size=self.train_batch_size, # バッチごとにジェネレータから生成される画像の数
+                seed=seed, # 乱数シード
+                shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+            )
+
             self.valid_gen = None
         return self.train_gen, self.valid_gen
 
