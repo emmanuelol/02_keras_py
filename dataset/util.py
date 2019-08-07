@@ -108,6 +108,57 @@ def ipywidgets_show_img(img_path_list):
         plt.show()
     interact(view_image, index=(0, len(img_path_list) - 1))
 
+def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=42
+                        , is_umap=True, point_size=None, is_axis_off=True, is_show=True):
+    """
+    umap/tsneで次元削減した画像出力
+    Args:
+        x_array: np.array型のn次元の特徴量
+        y: 特徴量のラベル
+        out_png: umap/tsneの出力画像のパス
+        random_state: 乱数シード
+        is_umap: Trueならumapで次元削減。Falseならtsneで次元削減
+        point_size: plot点の大きさ
+        is_axis_off: Trueなら画像のx,y軸表示させない
+        is_show: Trueなら次元削減した画像plt.show()しない
+    Usage:
+        %matplotlib inline
+        from sklearn.datasets import load_digits
+        digits = load_digits()
+        # MNIST1画像
+        x = digits.data[0].reshape(digits.data[0].shape[0], 1)
+        print(x.shape) # (64, 1)
+        umap_tsne_scatter(x)
+        # MNIST全画像
+        x = digits.data
+        print(x.shape) # (1797, 64)
+        util.umap_tsne_scatter(x, y=digits.target, out_png='output_test/umap_scatter.png')
+    """
+    import umap
+    from sklearn.manifold import TSNE
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+
+    if is_umap == True:
+        embedding = umap.UMAP(random_state=random_state).fit_transform(x_array)
+    else:
+        tsne_model = TSNE(n_components=2, random_state=random_state)
+        embedding = tsne_model.fit_transform(x_array)
+
+    if y is None:
+        plt.scatter(embedding[:,0],embedding[:,1], s=point_size)
+    else:
+        # ラベル:y指定してplot点の色変える
+        plt.scatter(embedding[:,0],embedding[:,1], c=y, s=point_size, cmap=cm.tab10)
+        plt.colorbar()
+    if is_axis_off == True:
+        plt.axis('off') # x,y軸表示させない
+    if out_png is not None:
+        plt.savefig(out_png)
+    if is_show == True:
+        plt.show()
+
+
 if __name__ == '__main__':
     print('util.py: loaded as script file')
 else:
