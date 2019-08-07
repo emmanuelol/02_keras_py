@@ -162,6 +162,13 @@ class Objective(object):
                   , oct_conv_alpha=[0.25] # OctConv_WideResNet の低周波と高周波のチャンネル数の割り振り具合であるα
                   , wrn_N=[4] # WideResNetの引数
                   , wrn_k=[10] # WideResNetの引数
+                  , color_mode='rgb' # Imagedatageneratorのcolor_mode
+                  , class_mode='categorical' # Imagedatageneratorのclass_mode
+                  , x_col=None, y_col=None # flow_from_dataframeのx(説明変数:画像ファイル名の列名),y(目的変数:onehot前のラベル列名)
+                  , train_df=None # flow_from_dataframeのtrain用データフレーム。x_col,y_colの列をもつ
+                  , valid_df=None # flow_from_dataframeのvalid用データフレーム。x_col,y_colの列をもつ
+                  , validation_split=0.0 # flow_from_dataframeのtrainの何割をvalidationにするか。0.0ならtrainからvalidation作らない。valid_df指定あればvalidation_split使わず、valid_dfからvalidation作る
+                  , seed=42 # flow_from_dataframeの乱数シード
                  ):
         # define_model.get_fine_tuning_model(), model.fit_generator() で使う引数
         self.out_dir = out_dir
@@ -242,6 +249,14 @@ class Objective(object):
         self.oct_conv_alpha=oct_conv_alpha
         self.wrn_k=wrn_k
         self.wrn_N=wrn_N
+        self.color_mode=color_mode
+        self.class_mode=class_mode
+        self.x_col=x_col
+        self.y_col=y_col
+        self.train_df=train_df
+        self.valid_df=valid_df
+        self.validation_split=validation_split
+        self.seed=seed
 
     # ============================================================ model ============================================================
     def _optuna_model(self, trial, branch_Tox21_12task):
@@ -424,13 +439,27 @@ class Objective(object):
         # d_cls.train_gen, d_cls.valid_gen d_cls.test_gen 作成
         if self.train_data_dir is None:
             self.d_cls.create_my_generator_flow(my_IDG_options=my_IDG_options)
+
+        elif self.x_col is not None and self.y_col is not None and self.train_df is not None:
+            # create_my_generator_flow_from_dataframeだけはd_cls.train_gen, d_cls.valid_gen のみ作成
+            self.d_cls.create_my_generator_flow_from_dataframe(self.x_col, self.y_col
+                                                                , self.train_df
+                                                                , self.train_data_dir
+                                                                , valid_df=self.valid_df
+                                                                , valid_data_dir=self.validation_data_dir
+                                                                , classes=self.class_name # Noneでもy_colから自動でクラスidつけてくれる。 class_indices でクラスidとクラス名の辞書見れるみたい
+                                                                , validation_split=self.validation_split
+                                                                , seed=self.seed
+                                                                , color_mode=self.color_mode
+                                                                , class_mode=self.class_mode
+                                                                , my_IDG_options=my_IDG_options)
         else:
             self.d_cls.create_my_generator_flow_from_directory(self.train_data_dir
                                                                 , self.class_name
                                                                 , valid_data_dir=self.validation_data_dir
                                                                 , test_data_dir=self.test_dir
-                                                                , color_mode='rgb'
-                                                                , class_mode='categorical'
+                                                                , color_mode=self.color_mode
+                                                                , class_mode=self.class_mode
                                                                 , my_IDG_options=my_IDG_options)
 
 

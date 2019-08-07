@@ -67,7 +67,7 @@ def pred_classes_generator(model, generator, steps=None, classes_list=None):
         pred_id_list.append(top_id)
         pred_score_list.append("{:.3}".format(pred[i,top_id]))
 
-    if classes_list != None:
+    if classes_list is not None:
         # クラス名あればクラスid をクラス名に変換
         pred_name_list = []
         for pred_id in pred_id_list:
@@ -88,7 +88,7 @@ def pred_classes_generator(model, generator, steps=None, classes_list=None):
         results = pd.DataFrame({"Filename":_label, "PredictionLabel":pred_name_list, "PredictionScore":pred_score_list})
     return results
 
-def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_label_print=True, figsize=(6, 4)):
+def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_label_print=True, figsize=(6, 4), y_true_label_np=None):
     """
     pred_classes_generator() でだした値からconf_matrix.make_confusion_matrix() で混同行列作る
     Arges:
@@ -97,6 +97,7 @@ def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_lab
         output_dir: 出力ディレクトリ
         is_label_print: ラベル名表示させるか。Trueならprint()でだす
         figsize: 混同行列のplotサイズ
+        y_true_label_np: np.arrayの正解ラベル。y_pred_npの要素が文字列型になって出てくる場合は、 y_true_label_np の要素の型は文字列でないとエラー（np.array(y_true_label_np_int, dtype=str)）
     Return:
         混同行列のファイル作成
     """
@@ -106,13 +107,14 @@ def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_lab
     y_pred_list_str = [str(i) for i in y_pred_list] # リストの中身を文字型に変換
     y_pred_np = np.array(y_pred_list_str) # リストをnumpyに変換
 
-    # ファイルパスから正解ラベル取得し、numpyに変換
-    y_true_list = pred_df['Filename']
-    y_true_label_list = []
-    for y in y_true_list:
-        y_true_label = os.path.basename(os.path.dirname(y)) # 正解ラベルであるファイルの直上のフォルダ名のみを取得
-        y_true_label_list.append(y_true_label)
-    y_true_label_np = np.array(y_true_label_list) # リストをnumpyに変換
+    if y_true_label_np is None:
+        # y_true_label_np=Noneならファイルパスから正解ラベル取得し、numpyに変換（flow_from_directory用）
+        y_true_list = pred_df['Filename']
+        y_true_label_list = []
+        for y in y_true_list:
+            y_true_label = os.path.basename(os.path.dirname(y)) # 正解ラベルであるファイルの直上のフォルダ名のみを取得
+            y_true_label_list.append(y_true_label)
+        y_true_label_np = np.array(y_true_label_list) # リストをnumpyに変換
 
     if is_label_print==True:
         print('y_pred_list_str:', y_pred_np)
@@ -319,7 +321,7 @@ def get_predict_generator_results(pred, generator, classes_list=None):
         pred_id_list.append(top_id)
         pred_score_list.append("{:.3}".format(pred[i,top_id]))
 
-    if classes_list != None:
+    if classes_list is not None:
         # クラス名あればクラスid をクラス名に変換
         pred_name_list = []
         for pred_id in pred_id_list:
@@ -405,6 +407,7 @@ def pred_tta_from_paths(model, img_paths, img_rows, img_cols, classes=None, show
 def copy_pred_img_by_pred_df(pred_img_output_dir, pred_df):
     """
     予測結果のデータフレームから、予測ラベルごとに出力先ディレクトリを分けて、予測した画像コピーする
+    iPhone画像の予測分類用
     """
     for img_path, label, score in tqdm(zip(pred_df['Filename'], pred_df['PredictionLabel'], pred_df['PredictionScore'])):
         # 予測ラベルごとに出力先ディレクトリ
