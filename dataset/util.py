@@ -157,6 +157,7 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
         plt.savefig(out_png)
     if is_show == True:
         plt.show()
+    plt.clf() # plotの設定クリアにする
 
 
 if __name__ == '__main__':
