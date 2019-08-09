@@ -492,6 +492,7 @@ def print_image_generator(gen, i=0):
     for ii in range(len(y)):
         print(f'y[{ii}]:', y[ii])
         plt.imshow(x[ii])
+        plt.grid(False)
         plt.show()
 
 if __name__ == '__main__':
