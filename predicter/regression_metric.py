@@ -5,13 +5,14 @@ import numpy as np
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from statistics import mean
 
-def calc_regression_metrics(y_true_list, y_pred_list, mask_value=-1):
+def calc_regression_metrics(y_true_list, y_pred_list, mask_value=-1, is_print=True):
     """
     回帰の評価指標を計算する
     Args:
         y_true_list:正解ラベルのnumpy.ndarrayのリスト [array([0,1,0,…]), array([1,0,0,…]),…]
         y_pred_list:予測スコアのnumpy.ndarrayのリスト [array([0.65,0.99,0.01,…]), array([0.1,0.33,0.95,…]),…]
         mask_value:ラベルの欠損値
+        is_print:Trueならprint()で返り値のMAEの値などを表示する
     """
     mae_list = []
     mse_list = []
@@ -38,11 +39,12 @@ def calc_regression_metrics(y_true_list, y_pred_list, mask_value=-1):
         #    rmse_list.append(-1)
         #    r2_list.append(-1)
         count += 1
-    print('MAE, Mean Absolute Error:', mae_list, mean(mae_list))
-    print('MSE, Mean Squared Error:', mse_list, mean(mse_list))
-    print('RMSE: Root Mean Squared Error:', rmse_list, mean(rmse_list))
-    print('R2, R-squared, coefficient of determination:', r2_list, mean(r2_list))
-    return y_true_list, y_pred_list, mae_list, mse_list, rmse_list, r2_list
+    if is_print == True:
+        print('MAE, Mean Absolute Error:', mae_list, mean(mae_list))
+        print('MSE, Mean Squared Error:', mse_list, mean(mse_list))
+        print('RMSE: Root Mean Squared Error:', rmse_list, mean(rmse_list))
+        print('R2, R-squared, coefficient of determination:', r2_list, mean(r2_list))
+    return mae_list, mse_list, rmse_list, r2_list
 
 if __name__ == '__main__':
     print('regression_metric.py: loaded as script file')

@@ -306,7 +306,7 @@ class LabeledDataset:
     def create_my_generator_flow_from_dataframe(self
                                                 , x_col, y_col
                                                 , train_df
-                                                , train_data_dir
+                                                , train_data_dir=None
                                                 , valid_df=None
                                                 , valid_data_dir=None
                                                 , classes=None
@@ -317,7 +317,11 @@ class LabeledDataset:
         """
         my_generator.MyImageDataGeneratorクラスからflow_from_dataframe()で
         train,validation,test setのGenerator作成
-        x_col, y_colはtrain_dfのファイル名列（ディレクトリ名はいらない。ファイル名(*.jpg)だけ）とラベル列（ラベルはone-hot前）
+        x_col, y_col はtrain_dfのファイル名列
+        x_col列は、引数の train_data_dir で画像ディレクトリ指定している場合は画像ファイル名(*.jpg)だけで良い
+        y_col列はラベル列。
+        class_mode='categorical'ならone-hotに変換してくれるのでラベルはone-hot前でよい
+        回帰で使う場合はclass_mode='raw'にすること。ラベルの数値そのまま返してくれる
         """
         print('my_IDG_options:', my_IDG_options)
 
@@ -328,6 +332,7 @@ class LabeledDataset:
             train_datagen = my_generator.MyImageDataGenerator(**my_IDG_options)
 
         if validation_split > 0.0:
+            # validation_splitでtrainとvalidationつくると、validationにもtarinと同じ水増しが実行されるのでつかえない！！！
             self.train_gen = train_datagen.flow_from_dataframe(
                 train_df,
                 directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
@@ -343,7 +348,7 @@ class LabeledDataset:
                 shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
             )
 
-            self.valid_gen = train_datagen.flow_from_dataframe(
+            self.valid_gen = valid_datagen.flow_from_dataframe(
                 train_df,
                 directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
                 x_col=x_col,
@@ -355,9 +360,9 @@ class LabeledDataset:
                 class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
                 batch_size=self.valid_batch_size, # バッチごとにジェネレータから生成される画像の数
                 seed=seed, # 乱数シード
-                shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+                shuffle=False # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
             )
-        elif valid_df is not None and valid_data_dir is not None:
+        elif valid_df is not None:
             self.train_gen = train_datagen.flow_from_dataframe(
                 train_df,
                 directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
@@ -468,6 +473,26 @@ def get_folds(X, y, cv_count, split_seed, stratify=None):
     cv = cv(cv_count, shuffle=True, random_state=split_seed)
     folds = list(cv.split(X, y))
     return folds
+
+def print_image_generator(gen, i=0):
+    """
+    ImageDataGeneratorの1batdh分画像とラベルをprintで確認する
+    Arges:
+        gen: flow済みのImageDataGeneratorのインスタンス。d_cls.train_genとか
+        i: batchのid
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    x,y = next(gen)
+    print('x.shape:', x.shape)
+    print(f'x[{i}]:\n', x[i])
+    print('np.max(x):', np.max(x))
+    print('y.shape:', y.shape)
+    for ii in range(len(y)):
+        print(f'y[{ii}]:', y[ii])
+        plt.imshow(x[ii])
+        plt.show()
 
 if __name__ == '__main__':
     print('get_train_valid_test.py: loaded as script file')
