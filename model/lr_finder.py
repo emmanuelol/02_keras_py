@@ -68,7 +68,7 @@ class LearningRateFinder:
 
     def is_data_iter(self, data):
         # チェックするクラスタイプのセットを定義する
-        iterClasses = ["NumpyArrayIterator", "DirectoryIterator", "DataFrameIterator", "Iterator", "Sequence"]
+        iterClasses = ["NumpyArrayIterator", "DirectoryIterator", "DataFrameIterator", "Iterator", "Sequence", "generator"]
 
         # データがイテレータかどうかを返します
         return data.__class__.__name__ in iterClasses
@@ -109,7 +109,7 @@ class LearningRateFinder:
         """
         学習率を探索する
         Args:
-            trainData：トレーニングデータ（データのNumPy配列またはデータジェネレーター）。
+            trainData：トレーニングデータ（NumPy配列またはデータジェネレーター）。
             startLR：初期の開始学習率。
             epochs：トレーニングするエポックの数（値が指定されていない場合、エポックの数を計算します）。
             stepsPerEpoch：各エポックごとのバッチ更新ステップの総数。
