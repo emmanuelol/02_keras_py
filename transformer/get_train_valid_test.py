@@ -348,7 +348,7 @@ class LabeledDataset:
                 shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
             )
 
-            self.valid_gen = valid_datagen.flow_from_dataframe(
+            self.valid_gen = train_datagen.flow_from_dataframe(
                 train_df,
                 directory=train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
                 x_col=x_col,
