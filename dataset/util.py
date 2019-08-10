@@ -109,7 +109,10 @@ def ipywidgets_show_img(img_path_list):
     interact(view_image, index=(0, len(img_path_list) - 1))
 
 def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=42
-                        , is_umap=True, point_size=None, is_axis_off=True, is_show=True):
+                      , is_umap=True, point_size=None, is_axis_off=True, is_show=True
+                      , n_neighbors=15, min_dist=0.1
+                      , perplexity=30.0
+                     ):
     """
     umap/tsneで次元削減した画像出力
     Args:
@@ -121,6 +124,9 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
         point_size: plot点の大きさ
         is_axis_off: Trueなら画像のx,y軸表示させない
         is_show: Trueなら次元削減した画像plt.show()しない
+        n_neighbors: umapのパラメータ。大きくするとマクロな、小さくするとミクロな構造を振る舞いを反映させる。t-SNEでいうところのperplexityのような値だと思われる。2~100が推奨されている。
+        min_dist: umapのパラメータ。同一クラスタとして判定する距離。値大きいとplot点広がる。0.0~0.99。
+        perplexity: tsneのパラメータ。投射した点の集まり方の密さを表すもの。この値は5～50が理論値で、低いほうが点が密になりやすく、高いとゆるいプロットになり
     Usage:
         %matplotlib inline
         from sklearn.datasets import load_digits
@@ -140,9 +146,9 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
     import matplotlib.cm as cm
 
     if is_umap == True:
-        embedding = umap.UMAP(random_state=random_state).fit_transform(x_array)
+        embedding = umap.UMAP(random_state=random_state, n_neighbors=n_neighbors, min_dist=min_dist).fit_transform(x_array)
     else:
-        tsne_model = TSNE(n_components=2, random_state=random_state)
+        tsne_model = TSNE(n_components=2, random_state=random_state, perplexity=perplexity)
         embedding = tsne_model.fit_transform(x_array)
 
     if y is None:
@@ -158,6 +164,7 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
     if is_show == True:
         plt.show()
     plt.clf() # plotの設定クリアにする
+    return embedding
 
 
 if __name__ == '__main__':
