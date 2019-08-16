@@ -313,7 +313,8 @@ class LabeledDataset:
                                                 , validation_split=0.0
                                                 , color_mode='rgb', class_mode='categorical'
                                                 , seed=42
-                                                , my_IDG_options={}):
+                                                , my_IDG_options={}
+                                                , valid_IDG_options={'rescale':1.0/255.0}):
         """
         my_generator.MyImageDataGeneratorクラスからflow_from_dataframe()で
         train,validation,test setのGenerator作成
@@ -377,7 +378,7 @@ class LabeledDataset:
                 shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
             )
 
-            valid_datagen = my_generator.get_datagen(rescale=my_IDG_options['rescale'])
+            valid_datagen = my_generator.MyImageDataGenerator(**valid_IDG_options)
             self.valid_gen = valid_datagen.flow_from_dataframe(
                 valid_df,
                 directory=valid_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス

@@ -46,8 +46,13 @@ rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classe
 @rem --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @rem 作成日2019/8/11 iPhoneモデルで似ている画像を集めてタイル化（Reframe Visualization）
 
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07
 
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\shingo -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\shingo
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\comic_book -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\comic_book
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\bikini -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\bikini
 
 
 rem pause

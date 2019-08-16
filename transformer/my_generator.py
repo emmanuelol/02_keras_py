@@ -104,6 +104,7 @@ class MyImageDataGenerator(ImageDataGenerator):
                  , ricap_beta = 0.0 # RICAP。使う場合は0.3とか
                  , ricap_use_same_random_value_on_batch = True # RICAP
                  , is_base_aug = False # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
+                 , is_grayscale = False # グレースケール化
                 ):
         # 親クラスのコンストラクタ
         super().__init__(featurewise_center, samplewise_center, featurewise_std_normalization, samplewise_std_normalization, zca_whitening, zca_epsilon, rotation_range, width_shift_range, height_shift_range, brightness_range, shear_range, zoom_range, channel_shift_range, fill_mode, cval, horizontal_flip, vertical_flip, rescale, preprocessing_function, data_format, validation_split)
@@ -123,6 +124,8 @@ class MyImageDataGenerator(ImageDataGenerator):
             self.random_erasing_maxpixel = 1
         else:
             self.random_erasing_maxpixel = random_erasing_maxpixel
+        # グレースケール化
+        self.is_grayscale = is_grayscale
         # RICAP
         assert ricap_beta >= 0.0
         self.ricap_beta = ricap_beta
@@ -319,6 +322,16 @@ class MyImageDataGenerator(ImageDataGenerator):
         # RICAP
         if self.ricap_beta > 0:
             batch_x, batch_y = self.ricap(batch_x, batch_y, beta=self.ricap_beta, use_same_random_value_on_batch=self.ricap_use_same_random_value_on_batch)
+
+        # グレースケール化
+        if self.is_grayscale == True:
+            aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=1)])] )
+            x = np.zeros(batch_x.shape)
+            for i in range(batch_x.shape[0]):
+                # rescale済みだから255.0かけないとおかしくなる
+                tmp = aug(image=batch_x[i]*255.0)["image"]
+                x[i] = tmp/255.0
+            batch_x = x
 
         # Random Erasing
         if self.random_erasing_prob > 0:

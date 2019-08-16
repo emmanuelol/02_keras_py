@@ -166,6 +166,21 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
     plt.clf() # plotの設定クリアにする
     return embedding
 
+def show_tile_img(images_4tensor):
+    """
+    4次元ベクトル[画像枚数, y_shape, x_shape, チャネル数]を1枚ずつ積み上げて、タイル状の画像にする
+    https://qiita.com/ka10ryu1/items/015c6a6a5fa287a47828
+    Args:
+        images_4tensor: 4次元ベクトル[画像枚数, y_shape, x_shape, チャネル数]
+    """
+    tile = None
+    collage_n_x = int(np.sqrt(images_4tensor.shape[0]))
+    for i in range(images_4tensor.shape[0]//collage_n_x):
+        if tile is None:
+            tile = np.hstack(images_4tensor[i*+collage_n_x:i*+collage_n_x+collage_n_x]) # np.hstackは水平方向積上げ
+        else:
+            tile = np.vstack(( tile, np.hstack(images_4tensor[i*+collage_n_x:i*+collage_n_x+collage_n_x]) )) # np.vstackは垂直方向積上げ
+    show_np_img(tile)
 
 if __name__ == '__main__':
     print('util.py: loaded as script file')
