@@ -1,0 +1,69 @@
+import _pytest.capture  # NOQA
+import _pytest.logging  # NOQA
+import logging
+
+import optuna.logging
+
+
+def test_get_logger(caplog):
+    # type: (_pytest.logging.LogCaptureFixture) -> None
+
+    logger = optuna.logging.get_logger('optuna.foo')
+    with caplog.at_level(logging.INFO, logger='optuna.foo'):
+        logger.info('hello')
+    assert 'hello' in caplog.text
+
+
+def test_default_handler(capsys):
+    # type: (_pytest.capture.CaptureFixture) -> None
+
+    # We need to reconstruct our default handler to properly capture stderr.
+    optuna.logging._reset_library_root_logger()
+    library_root_logger = optuna.logging._get_library_root_logger()
+    example_logger = optuna.logging.get_logger('optuna.bar')
+
+    # Default handler enabled
+    optuna.logging.enable_default_handler()
+    assert library_root_logger.handlers
+    example_logger.warning('hey')
+    _, err = capsys.readouterr()
+    assert 'hey' in err
+
+    # Default handler disabled
+    optuna.logging.disable_default_handler()
+    assert not library_root_logger.handlers
+    example_logger.warning('yoyo')
+    _, err = capsys.readouterr()
+    assert 'yoyo' not in err
+
+
+def test_verbosity(capsys):
+    # type: (_pytest.capture.CaptureFixture) -> None
+
+    # We need to reconstruct our default handler to properly capture stderr.
+    optuna.logging._reset_library_root_logger()
+    library_root_logger = optuna.logging._get_library_root_logger()
+    example_logger = optuna.logging.get_logger('optuna.hoge')
+    optuna.logging.enable_default_handler()
+
+    # level INFO
+    optuna.logging.set_verbosity(optuna.logging.INFO)
+    assert library_root_logger.getEffectiveLevel() == logging.INFO
+    example_logger.warning('hello-warning')
+    example_logger.info('hello-info')
+    example_logger.debug('hello-debug')
+    _, err = capsys.readouterr()
+    assert 'hello-warning' in err
+    assert 'hello-info' in err
+    assert 'hello-debug' not in err
+
+    # level WARNING
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    assert library_root_logger.getEffectiveLevel() == logging.WARNING
+    example_logger.warning('bye-warning')
+    example_logger.info('bye-info')
+    example_logger.debug('bye-debug')
+    _, err = capsys.readouterr()
+    assert 'bye-warning' in err
+    assert 'bye-info' not in err
+    assert 'bye-debug' not in err

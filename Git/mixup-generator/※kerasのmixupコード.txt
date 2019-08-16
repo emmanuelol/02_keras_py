@@ -1,0 +1,10 @@
+kerasのmixupコード
+
+Git:https://github.com/yu4u/mixup-generator
+git clone https://github.com/yu4u/mixup-generator.git
+
+呼び出すときは
+Git_path = r'C:\Users\shingo\Git\mixup-generator'
+sys.path.append(Git_path)
+from mixup_generator import MixupGenerator
+でつかう

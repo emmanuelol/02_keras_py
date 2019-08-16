@@ -1,0 +1,233 @@
+version: 2
+
+workflows:
+  version: 2
+  commit-build:
+    jobs:
+      - checks
+      - document
+      - tests-python37
+      - tests-python36
+      - tests-python35
+      - tests-python27
+      - codecov
+  daily-build:
+    triggers:
+      - schedule:
+          cron: "0 15 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - checks
+      - document
+      - tests-python37
+      - tests-python36
+      - tests-python35
+      - tests-python27
+      - examples-python37
+      - examples-python36
+      - examples-python35
+      - examples-python27
+
+jobs:
+
+  # Lint and static type checking
+
+  checks:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+
+      - run:
+          name: install
+          command: |
+            python -m venv venv || virtualenv venv
+            . venv/bin/activate
+            pip install .[checking]
+
+      - run:
+          name: autopep8
+          command: |
+            . venv/bin/activate
+            autopep8 . -r --diff --exit-code
+
+      - run:
+          name: flake8
+          command: |
+            . venv/bin/activate
+            flake8 .
+
+      - run:
+          name: mypy
+          command: |
+            . venv/bin/activate
+            mypy --disallow-untyped-defs --ignore-missing-imports .
+            mypy --py2 --disallow-untyped-defs --ignore-missing-imports .
+
+  document:
+    docker:
+      - image: readthedocs/build:latest
+    steps:
+      - checkout
+
+      - run:
+          name: install
+          command: |
+            python -m venv venv || virtualenv venv
+            . venv/bin/activate
+            pip install .[document]
+
+      - run:
+          name: build
+          command: |
+            . venv/bin/activate
+            cd docs
+            make html
+
+
+  # Unit tests
+
+  tests-python37:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+
+      - run: &install
+          name: install
+          command: |
+            sudo apt-get update
+            sudo apt-get -y install openmpi-bin libopenmpi-dev
+            python -m venv venv || virtualenv venv
+            . venv/bin/activate
+            python setup.py sdist
+            pip install $(ls dist/*.tar.gz)[testing]
+
+      - run: &tests
+          name: tests
+          command: |
+            . venv/bin/activate
+            pytest tests
+          environment:
+            OMP_NUM_THREADS: 1
+
+      - run: &tests-mn
+          name: tests-mn
+          command: |
+            . venv/bin/activate
+            mpirun -n 2 -- pytest tests/integration_tests/test_chainermn.py
+          environment:
+            OMP_NUM_THREADS: 1
+
+  tests-python36:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout
+      - run: *install
+      # TODO(higumachan): remove this "run" section after Tensorflow supports Python 3.7 officially.
+      - run: &keras-install
+          name: install-keras
+          command: |
+            . venv/bin/activate
+            pip install .[keras]
+      - run: *tests
+      - run: *tests-mn
+
+  tests-python35:
+    docker:
+      - image: circleci/python:3.5
+    steps:
+      [checkout, run: *install, run: *keras-install, run: *tests, run: *tests-mn]
+
+  tests-python27:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      [checkout, run: *install, run: *keras-install, run: *tests, run: *tests-mn]
+
+  codecov:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+
+      - run: *install
+
+      - run: *keras-install
+
+      - run:
+          name: install-codecov
+          command: |
+            . venv/bin/activate
+            pip install .[codecov]
+
+      - run:
+          name: codecov
+          command: |
+            . venv/bin/activate
+            pytest --cov=./ tests
+            codecov
+          environment:
+            OMP_NUM_THREADS: 1
+
+  # Examples
+
+  examples-python37:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+
+      - run: *install
+
+      - run: &install-examples
+          name: install
+          command: |
+            . venv/bin/activate
+            pip install chainer lightgbm scikit-learn tensorflow xgboost
+
+      - run: &examples
+          name: examples
+          command: |
+            . venv/bin/activate
+            for file in `find examples -name '*.py' -not -name 'chainermn_*.py'`
+            do
+               python $file
+            done
+          environment:
+            OMP_NUM_THREADS: 1
+
+      - run: &examples-mn
+          name: examples-mn
+          command: |
+            . venv/bin/activate
+            STORAGE_URL=sqlite:///example.db
+            for file in `find examples -name 'chainermn_*.py'`
+            do
+                STUDY_NAME=`optuna create-study --storage $STORAGE_URL`
+                mpirun -n 2 -- python $file $STUDY_NAME $STORAGE_URL
+            done
+          environment:
+            OMP_NUM_THREADS: 1
+
+  examples-python36:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      [checkout, run: *install, run: *install-examples, run: *examples, run: *examples-mn]
+
+  examples-python35:
+    docker:
+      - image: circleci/python:3.5
+    steps:
+      [checkout, run: *install, run: *install-examples, run: *examples, run: *examples-mn]
+
+  examples-python27:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      [checkout, run: *install, run: *install-examples, run: *examples, run: *examples-mn]
