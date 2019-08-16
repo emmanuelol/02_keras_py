@@ -110,8 +110,10 @@ pred_tta_df = base_predict.pred_tta_from_paths(load_model, img_paths, img_rows, 
 
 ```
 
+<!-- 
 ## License
 This software is released under the MIT License, see LICENSE.
+-->
 
 ## Author
 - Github: [riron1206](https://github.com/riron1206)
