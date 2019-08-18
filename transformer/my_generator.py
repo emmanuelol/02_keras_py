@@ -64,9 +64,20 @@ import albumentations
 sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
 from keras_preprocessing.image import ImageDataGenerator
 
-def get_datagen(rescale=1.0/255):
+_gray_aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=1)])] )
+def _preprocessing_grayscale(x):
+    """ ImageDataGeneratorのpreprocessing_functionで3次元画像をグレースケール化 """
+    x = _gray_aug(image=x)["image"].astype(np.float32)
+    #print(x, x.shape, type(x), type(x[0][0][0]))
+    return x
+
+def get_datagen(rescale=1.0/255, is_grayscale = False):
     """画像_前処理実行"""
-    datagen = ImageDataGenerator(rescale=rescale) # 前処理：画像を0.0~1.0の範囲に変換
+    if is_grayscale == True:
+        datagen = ImageDataGenerator(rescale=rescale # 前処理：画像を0.0~1.0の範囲に変換
+                                     , preprocessing_function=_preprocessing_grayscale) # グレースケール化
+    else:
+        datagen = ImageDataGenerator(rescale=rescale) # 前処理：画像を0.0~1.0の範囲に変換
     return datagen
 
 class MyImageDataGenerator(ImageDataGenerator):

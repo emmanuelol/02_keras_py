@@ -252,7 +252,9 @@ class LabeledDataset:
                                                 , train_data_dir, classes
                                                 , valid_data_dir=None, test_data_dir=None
                                                 , color_mode='rgb', class_mode='categorical'
-                                                , my_IDG_options={}):
+                                                , my_IDG_options={}
+                                                , is_valid_grayscale=False # validation generatorをグレースケール化するか
+                                                ):
         """
         my_generator.MyImageDataGeneratorクラスからflow_from_directory()で
         train,validation,test setのGenerator作成
@@ -273,7 +275,7 @@ class LabeledDataset:
 
         if valid_data_dir is not None:
             # 検証画像_前処理実行
-            valid_datagen = my_generator.get_datagen(rescale=my_IDG_options['rescale'])
+            valid_datagen = my_generator.get_datagen(rescale=my_IDG_options['rescale'], is_grayscale=is_valid_grayscale)
             self.valid_gen = valid_datagen.flow_from_directory(
                 valid_data_dir,
                 target_size=(self.shape[0], self.shape[1]),
@@ -314,7 +316,9 @@ class LabeledDataset:
                                                 , color_mode='rgb', class_mode='categorical'
                                                 , seed=42
                                                 , my_IDG_options={}
-                                                , valid_IDG_options={'rescale':1.0/255.0}):
+                                                , is_valid_grayscale=False # validation generatorをグレースケール化するか
+                                                #, valid_IDG_options={'rescale':1.0/255.0}
+                                                ):
         """
         my_generator.MyImageDataGeneratorクラスからflow_from_dataframe()で
         train,validation,test setのGenerator作成
@@ -378,7 +382,8 @@ class LabeledDataset:
                 shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
             )
 
-            valid_datagen = my_generator.MyImageDataGenerator(**valid_IDG_options)
+            valid_datagen = my_generator.get_datagen(rescale=my_IDG_options['rescale'], is_grayscale=is_valid_grayscale)
+            #valid_datagen = my_generator.MyImageDataGenerator(**valid_IDG_options) # MyImageDataGeneratorでgenerator作るとfilenameなどが属性に持たなくなるので駄目
             self.valid_gen = valid_datagen.flow_from_dataframe(
                 valid_df,
                 directory=valid_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス

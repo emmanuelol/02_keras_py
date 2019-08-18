@@ -39,7 +39,7 @@ from predicter import conf_matrix
 from dataset import util
 from predicter import ensemble_predict
 
-def pred_classes_generator(model, generator, steps=None, classes_list=None):
+def pred_classes_generator(model, generator, steps=None, classes_list=None, verbose=0):
     """
     多クラス分類のgenerator からgenerator の指定ディレクトリの画像全件予測する
     Args:
@@ -47,6 +47,7 @@ def pred_classes_generator(model, generator, steps=None, classes_list=None):
         generator: generatorオブジェクト
         steps: batch回す回数。 None ならlen(generator)をステップ数として使用
         classes_list: クラス名リスト.クラスid をクラス名に変換しない場合はNoneにする
+        verbose: predict_generatorの進行状況メッセージ出力モード。0/1。1にすると進捗バー出るがnotebookだと改行されまくる
     Return:
         データフレームでファイル名と予測ラベル返す
     """
@@ -56,7 +57,7 @@ def pred_classes_generator(model, generator, steps=None, classes_list=None):
     # generator をreset() せずにpredict_generator 実行すると順番がグチャグチャでpredict してしまうらしい
     # https://medium.com/@vijayabhaskar96/tutorial-image-classification-with-keras-flow-from-directory-and-generators-95f75ebe5720
     generator.reset()
-    pred = model.predict_generator(generator, steps=steps)#steps=(totalTest // BS) + 1)
+    pred = model.predict_generator(generator, steps=steps, verbose=verbose)#steps=(totalTest // BS) + 1)
     #print('pred :', pred)
     # 予測確率最大のクラスidを取得
     top_indices = np.argmax(pred,axis=1)
