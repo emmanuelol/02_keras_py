@@ -17,20 +17,30 @@ class MyCheckPoint(keras.callbacks.Callback):
         snapshots_epoch: 指定したepoch 倍のepoch 時だけ保存する（コサインアニーリング+アンサンブルやるSnapshot Ensemble用）
         デフォルトのsnapshots_epoch=None なら全エポック保存
     """
-    def __init__(self, model, weight_dir, snapshots_epoch=None, filename='model_at_epoch'):
+    def __init__(self, model, weight_dir, snapshots_epoch=None, filename='model_at_epoch', is_best_val_loss=True):
          self.model_to_save = model
          self.weight_dir = weight_dir
          self.snapshots_epoch = snapshots_epoch
          self.filename = filename
+         self.is_best_val_loss = is_best_val_loss
+         self.val_loss = 100000.0
 
     def on_epoch_end(self, epoch, logs=None):
-        if self.snapshots_epoch is None:
-            #self.model_to_save.save('model_at_epoch_%d.h5' % epoch)
-            self.model_to_save.save(os.path.join(self.weight_dir, self.filename+'_%d.h5' % epoch))
-        else:
+        # best_val_lossのモデルの重み保存場合
+        if self.is_best_val_loss == True and self.val_loss > log['val_loss']:
+            self.val_loss = log['val_loss']
+            self.model_to_save.save(os.path.join(self.weight_dir, self.filename+'best_val_loss.h5' % epoch))
+
+        # 指定したepoch 倍のepoch 時だけ保存する（コサインアニーリング+アンサンブルやるSnapshot Ensemble用）
+        if self.snapshots_epoch is not None:
             amari = (epoch+1) % self.snapshots_epoch
             if epoch+1 >= self.snapshots_epoch and amari == 0:
                 self.model_to_save.save(os.path.join(self.weight_dir, self.filename+'_%d.h5' % epoch))
+        # 全エポック重み保存
+        else:
+            self.model_to_save.save(os.path.join(self.weight_dir, self.filename+'_%d.h5' % epoch))
+
+
 
 class LossHistory(keras.callbacks.Callback):
     """

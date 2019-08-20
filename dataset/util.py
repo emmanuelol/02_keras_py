@@ -86,7 +86,7 @@ def resize_np_Nearest_Neighbor(img_np, n_resize):
     return img_np.repeat(n_resize, axis=0).repeat(n_resize, axis=1)
 
 
-def ipywidgets_show_img(img_path_list):
+def ipywidgets_show_img(img_path_list, figsize=(9, 9), is_grayscale=False):
     """
     ipywidgetsでインタラクティブに画像表示
     https://github.com/pfnet-research/chainer-chemistry/blob/master/examples/tox21/tox21_dataset_exploration.ipynb
@@ -101,10 +101,10 @@ def ipywidgets_show_img(img_path_list):
         print('index={}, img_path={}'.format(index, img_path))
         img = Image.open(img_path)
         img_array = np.asarray(img)
-        #plt.figure(figsize=(9, 9))
+        plt.figure(figsize=figsize) # 表示サイズ指定
         plt.imshow(img_array)
-        #if is_grayscale == True:
-        #    plt.gray()
+        if is_grayscale == True:
+            plt.gray()
         plt.show()
     interact(view_image, index=(0, len(img_path_list) - 1))
 
