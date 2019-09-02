@@ -280,10 +280,10 @@ def predict_tta_generator(model, generator
     pred_tta = []
     # 書き込み進捗バーの書き込み先をsys.stdout(標準出力)指定しないと進捗バーが改行される
     # https://stackoverflow.com/questions/42212810/tqdm-in-jupyter-notebook
-    #pbar = tqdm(generator, file=sys.stdout)
-    #for step, (x_batch, y_batch) in enumerate(pbar):
-    for step, (x_batch, y_batch) in enumerate(generator):
-        #pbar.set_description("Processing %s" % step) # tqdmの進捗バー enumerateで回すと進捗バー改行されるためコメントアウト
+    pbar = tqdm(generator, file=sys.stdout)
+    for step, (x_batch, y_batch) in enumerate(pbar):
+    #for step, (x_batch, y_batch) in enumerate(generator):
+        pbar.set_description("Processing %s" % step) # tqdmの進捗バー enumerateで回すと進捗バー改行されるためコメントアウト
         for x, y in zip(x_batch, y_batch):
             pred = predict_tta(model, x
                                 , TTA=TTA

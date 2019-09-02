@@ -1,4 +1,4 @@
-@rem ä½œæˆæ—¥2019/8/11 iPhoneç”»åƒäºˆæ¸¬åˆ†é¡ã—ã¦äºˆæ¸¬ã‚¯ãƒ©ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã«ã‚³ãƒ”ãƒ¼ã™ã‚‹
+@rem ì¬“ú2019/8/11 iPhone‰æ‘œ—\‘ª•ª—Ş‚µ‚Ä—\‘ªƒNƒ‰ƒXƒfƒBƒŒƒNƒgƒŠ‚ÉƒRƒs[‚·‚é
 
 call activate tfgpu_py36_v3
 cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\predicter
@@ -42,17 +42,19 @@ rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classe
 
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-01 -i D:\iPhone_pictures\2019-01
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-02 -i D:\iPhone_pictures\2019-02
+call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -i D:\iPhone_pictures\2019-08
 
 @rem --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-@rem ä½œæˆæ—¥2019/8/11 iPhoneãƒ¢ãƒ‡ãƒ«ã§ä¼¼ã¦ã„ã‚‹ç”»åƒã‚’é›†ã‚ã¦ã‚¿ã‚¤ãƒ«åŒ–ï¼ˆReframe Visualizationï¼‰
+@rem ì¬“ú2019/8/11 iPhoneƒ‚ƒfƒ‹‚Å—‚Ä‚¢‚é‰æ‘œ‚ğW‚ß‚Äƒ^ƒCƒ‹‰»iReframe Visualizationj
 
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08
 
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\shingo -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\shingo
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\comic_book -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\comic_book
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\bikini -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\bikini
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\shingo -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\shingo
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\comic_book -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\comic_book
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\bikini -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\bikini
 
 
 rem pause

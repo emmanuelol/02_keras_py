@@ -431,8 +431,8 @@ def load_one_img(img_file_path, img_rows, img_cols):
     x = np.expand_dims(x, axis=0)# 4次元テンソルへ変換
     x = x.astype('float32')
     # 学習時にImageDataGeneratorのrescaleで正規化したので同じ処理が必要！ これを忘れると結果がおかしくなるので注意
-    x = x / 255.0# 前処理
-    return x
+    X = x / 255.0# 前処理
+    return X
 
 def get_folds(X, y, cv_count, split_seed, stratify=None):
     """Cross validationのインデックスを返す。

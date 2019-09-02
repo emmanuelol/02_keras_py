@@ -16,7 +16,6 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.applications.mobilenet import MobileNet
 import numpy as np
 import tensorflow as tf
-from tqdm import tqdm
 
 class Arcfacelayer(Layer):
     """
@@ -24,13 +23,12 @@ class Arcfacelayer(Layer):
     https://github.com/Yohei-Kawakami/201901_self_checkout/blob/develop/model/arcface.py
     """
     # s:softmaxの温度パラメータ, m:margin
-    def __init__(self, output_dim, s=30, m=0.50, easy_magin=False
-                 , **kwargs):
-        super(Arcfacelayer, self).__init__(**kwargs)
+    def __init__(self, output_dim, s=30, m=0.50, easy_magin=False):
         self.output_dim = output_dim
         self.s = s
         self.m = m
         self.easy_magin = easy_magin
+        super(Arcfacelayer, self).__init__()
 
     # 重みの作成
     def build(self, input_shape):
@@ -174,15 +172,12 @@ def test_acc(model, test_generator, hold_vector, thresh=0.0):
     # 判定
     #for i in range(sample):
     #    X, Y = test_generator.next()
-    label_index_list = []
     test_generator.reset()
-    for step, (X, Y) in tqdm(enumerate(test_generator)):
+    for step, (X, Y) in enumerate(test_generator):
         Y = np.argmax(Y, axis=1) # YはOneHotされているのでlabelのみ取り出す
         predict_vector = model.predict(X)
-        #print(predict_vector.shape)
         index = judgment(predict_vector, hold_vector, thresh)
         label_index = index #// 4 # hold_vector用の画像は4枚ずつあるのでlabelは4で割った商になる
-        label_index_list.append(label_index)
         if Y == label_index:
             correct += 1
             #print('pred_index: {}'.format(label_index))
@@ -191,7 +186,7 @@ def test_acc(model, test_generator, hold_vector, thresh=0.0):
             break
     acc = correct / test_generator.n # 正解/全体
     print("acc: {}".format(acc))
-    return acc, label_index_list
+    return acc
 
 class train_Generator_xandy(object): # rule1
     def __init__(self, train_generator):

@@ -71,7 +71,7 @@ def _preprocessing_grayscale(x):
     #print(x, x.shape, type(x), type(x[0][0][0]))
     return x
 
-def get_datagen(rescale=1.0/255, is_grayscale = False):
+def get_datagen(rescale=1.0/255, is_grayscale=False):
     """画像_前処理実行"""
     if is_grayscale == True:
         datagen = ImageDataGenerator(rescale=rescale # 前処理：画像を0.0~1.0の範囲に変換
