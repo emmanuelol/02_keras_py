@@ -44,6 +44,7 @@ def build_label_smoothing_loss(loss_function=tf.losses.sigmoid_cross_entropy, sm
     """
     def label_smoothing_loss(y_true, y_pred):
         return loss_function(y_true, y_pred, label_smoothing=smooth_factor)
+    return label_smoothing_loss
 
 # focal loss: 通常の cross entropy loss (CE) を動的に scaling（高い推論確率で正しく推論できているサンプルの損失をCross Entropy Lossより小さく）させる損失関数
 # Focal Loss は - (1-p_t)^γ ln(p_t) のような形

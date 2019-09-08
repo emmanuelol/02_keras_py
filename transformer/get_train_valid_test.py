@@ -424,10 +424,12 @@ class LabeledDataset:
         return len(self.X_valid) // self.valid_batch_size
 
 
-def load_one_img(img_file_path, img_rows, img_cols):
+def load_one_img(img_file_path, img_rows, img_cols, is_grayscale=False):
     """画像を1枚読み込んで、4次元テンソル(1, img_rows, img_cols, 3)へ変換+前処理"""
     img = image.load_img(img_file_path, target_size=(img_rows, img_cols))# 画像ロード
     x = image.img_to_array(img)# ロードした画像をarray型に変換
+    if is_grayscale == True:
+        x = my_generator.preprocessing_grayscale(x)
     x = np.expand_dims(x, axis=0)# 4次元テンソルへ変換
     x = x.astype('float32')
     # 学習時にImageDataGeneratorのrescaleで正規化したので同じ処理が必要！ これを忘れると結果がおかしくなるので注意

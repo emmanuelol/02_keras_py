@@ -18,6 +18,14 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+import sys
+# pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
+import pathlib
+current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
+sys.path.append( str(current_dir) + '/../' )
+from predicter import base_predict
+from transformer import get_train_valid_test, my_generator
+
 class Arcfacelayer(Layer):
     """
     arcface layer
@@ -233,6 +241,212 @@ class val_Generator_xandy(object):
     def __next__(self):
         X, Y = self.gene.__next__()#next()
         return [X,Y], Y
+
+########################### kaggleくずし字コンペ用 ###########################
+def pred_hold_vec(predict_model, df_hold_file_id, output_dir
+                   , class_count_max=5
+                   , img_rows=32, img_cols=32, is_grayscale=False):
+    """
+    予測モデル（predict_model）と
+    正解となるマスター画像のファイルパスとラベルidのデータフレーム（df_hold_file_id）から
+    推論実行してマスター画像のベクトル(np.array(クラス数, class_count_max, モデルの出力層のサイズ))を取得する。
+
+    予測したベクトルはnpyファイルでoutput_dirに保存する
+
+    マスター画像は1クラス複数枚（class_count_max枚）用意しないと精度下がる
+    Args:
+        predict_model:ArcFaceモデル
+        df_hold_file_id: 正解となるマスター画像のファイルパスとラベルidのデータフレーム
+        output_dir:出力ディレクトリ
+        class_count_max:1クラスあたりマスター画像何枚とるか
+        img_rows,img_cols:モデルの入力層のサイズ
+        is_grayscale:グレーにしてからpredictするか
+    Return:
+        np.array(pred_list):予測した正解となるマスター画像のベクトル(np.array(クラス数, class_count_max, モデルの出力層のサイズ))
+    """
+    df_hold_file_id.columns = ['file_path', 'label_id']
+    pred_list = []
+
+    for id in tqdm(sorted(df_hold_file_id['label_id'].unique())):
+        df = df_hold_file_id[df_hold_file_id['label_id'] == id]
+
+        if df.shape[0] > class_count_max:
+            df = df[:class_count_max]
+
+        X_list = []
+        for f in df['file_path']:
+            X = get_train_valid_test.load_one_img(f, img_rows, img_cols, is_grayscale=is_grayscale)
+            X_list.append(X[0])
+
+        # マスター画像は全クラス同じ枚数（class_count_max枚）用意する
+        if len(X_list) < class_count_max:
+            for i in range(class_count_max-len(X_list)):
+                X_list.append(X[0])
+        #print(np.array(X_list).shape)
+
+        # 推論実行してマスター画像のベクトル取得
+        pred = predict_model.predict(np.array(X_list))
+        #print(pred.shape)
+        pred_list.append(pred)
+
+    # 予測したベクトルをnpyで保存
+    np.save(output_dir+'/hold_vec.npy', np.array(pred_list))
+
+    return np.array(pred_list)
+
+
+def cossim(img1, img2):
+    """
+    コサイン距離：ベクトル空間モデルにおいて、文書同士を比較する際に用いられる類似度計算手法。
+                  ベクトル同士の成す角度の近さを表現する。1に近ければ類似しており、0に近ければ似ていない
+    """
+    return np.dot(img1, img2) / (np.linalg.norm(img1) * np.linalg.norm(img2))
+
+def pred_tta_X_hold_vec_cossim(predict_model, X, hold_vec
+                               , hold_name_list=None
+                               , img_rows=32, img_cols=32
+                               , TTA='no_flip'#'flip'
+                               , TTA_rotate_deg=0
+                               , TTA_crop_num=0
+                               , preprocess=1.0#1.0/255.0
+                              ):
+    """
+    1画像についてTTAで予測ベクトル推論し、
+    全クラスの正解ベクトルとの各コサイン類似度を計算して、
+    コサイン類似度最大の予測クラス名とコサイン類似度を返す
+    Args:
+        predict_model:ArcFaceモデル
+        X:予測する前処理済み4次元ベクトル
+        hold_vec:正解となるマスター画像のベクトル。np.array(クラス数, class_count_max, モデルの出力層のサイズ)
+        hold_name_list:hold_vec のラベル名リスト。予測クラス名出すのに使う。Noneなら予測クラス名ではなく予測クラスidを返す
+        img_rows,img_cols:モデルの入力層のサイズ
+        TTA*:TTAのoption
+    Return:
+        pred_label:コサイン類似度最大の予測クラス名(hold_name_list=Noneなら予測クラスid)
+        pred_conf:pred_labelに対応するコサイン類似度
+    """
+    c_metric = base_predict.predict_tta(predict_model
+                                        , X
+                                        , TTA=TTA
+                                        , TTA_rotate_deg=TTA_rotate_deg
+                                        , TTA_crop_num=TTA_crop_num, TTA_crop_size=[int(img_rows*3/4), int(img_cols*3/4)]
+                                        , preprocess=preprocess
+                                        , resize_size=[img_rows, img_cols])
+
+    #print(c_metric.shape)
+    # 全マスター画像とcossim比較する
+    cos_sim_mean_list = []
+    for i,h_name in enumerate(hold_name_list):
+
+        # マスター画像は1クラス複数枚用意しないと精度下がる
+        h_vec = hold_vec[i]
+
+        cos_sim_list = list(map(lambda h_metric: cossim(h_metric.flatten(), c_metric.flatten())
+                                , h_vec)) # ndarray.flatten()で1次元にしないとコサイン類似度計算できない
+        cos_sim_mean_list.append(np.mean(cos_sim_list)) # 1クラスについてのcossimの平均取る
+
+    top_id = np.argmax(cos_sim_mean_list) # コサイン類似度が最大のindex
+
+    if hold_name_list is None:
+        pred_label = top_id
+    else:
+        pred_label = hold_name_list[top_id]
+
+    pred_conf = cos_sim_mean_list[top_id]
+
+    return pred_label, pred_conf
+    #print('master+train_10:', class_conf, class_label) # cosとラベル確認用
+
+
+def pred_tta_X_gen_hold_vec_cossim(predict_model
+                                   , df_gen
+                                   , hold_vec, hold_name_list
+                                   , df_gen_data_dir=None
+                                   , df_gen_x_col='char_id', df_gen_y_col='unicode_id'
+                                   , img_rows=32, img_cols=32
+                                   , TTA='no_flip'#'flip'
+                                   , TTA_rotate_deg=0
+                                   , TTA_crop_num=0
+                                   , preprocess=1.0
+                                   , color_mode='rgb'
+                                   , class_mode='categorical'
+                                   , classes=None
+                                   , rescale=1.0/255.0
+                                   , is_grayscale=True
+                                   , max_step=None
+                                  ):
+    """
+    batchサイズ=1のgenerator作って、
+    正解となるマスター画像のベクトルのnp.array(hold_vec)
+    予測した画像のベクトルとの各コサイン類似度を計算して、
+    generatorでの正解率を返す。
+    ①ファイルパスとラベルidのデータフレーム（df_classes）からflow_from_dataframe()関数使ってgenerator作成、
+    ②TTAで予測
+    ため引数多い
+    Args:
+        predict_model:ArcFaceモデル
+        df_gen:予測する画像のファイルパスとラベル名のデータフレーム
+        hold_vec:正解となるマスター画像のベクトル。np.array(クラス数, class_count_max, モデルの出力層のサイズ)
+        hold_name_list:hold_vec のラベル名リスト。予測クラス名出すのに使う
+        df_gen_data_dir:df_genのファイルディレクトリ
+        df_gen_x_col, df_gen_y_col:df_genのファイル名とラベル名の列名
+        img_rows,img_cols:モデルの入力層のサイズ
+        TTA*:TTAのoption
+        is_grayscale:グレーにしてからpredictするか
+        max_step:generator何step回すか。Noneならgenerator最後までpredict
+    Return:
+        acc:正解率
+    """
+    datagen = my_generator.get_datagen(rescale=rescale, is_grayscale=is_grayscale)
+    gen = datagen.flow_from_dataframe(
+        df_gen,
+        directory=df_gen_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+        x_col=df_gen_x_col,
+        y_col=df_gen_y_col,
+        target_size=(img_rows, img_cols), # すべての画像はこのサイズにリサイズ
+        color_mode=color_mode,# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+        classes=classes, # 分類クラス名リスト
+        class_mode=class_mode, # 2値分類は「binary」、多クラス分類は「categorical」
+        batch_size=1, # バッチごとにジェネレータから生成される画像の数
+        seed=42, # 乱数シード
+        shuffle=False # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
+    )
+    #gen_val = list(gen.class_indices.values())
+    gen_keys = list(gen.class_indices.keys())
+
+    gen.reset()
+    if max_step is None:
+        max_step = gen.n
+
+    pred_label_list = []
+    correct = 0
+    for step, (X, y) in tqdm(enumerate(gen)):
+        classes_id = np.argmax(y, axis=1)[0] # YはOneHotされているので、classes_id取り出す
+        correct_label = gen_keys[classes_id] # 正解ラベル名
+        #print(X.shape, classes_id, correct_label)
+
+        pred_label, pred_conf = pred_tta_X_hold_vec_cossim(predict_model, X[0]
+                                                           , hold_vec
+                                                           , hold_name_list
+                                                           , img_rows=img_rows, img_cols=img_cols
+                                                           , TTA=TTA
+                                                           , TTA_rotate_deg=TTA_rotate_deg
+                                                           , TTA_crop_num=TTA_crop_num
+                                                           , preprocess=preprocess
+                                                          )
+        #print(pred_label, pred_conf, '\n')
+        pred_label_list.append(pred_label)
+
+        if correct_label == pred_label:
+            correct += 1
+
+        if step+1 >= max_step:
+            break
+
+    acc = correct / max_step # 正解/全体
+    print("acc: {}".format(acc))
+    return acc
+##########################################################################################
 
 if __name__ == '__main__':
     print('arcface.py: loaded as script file')

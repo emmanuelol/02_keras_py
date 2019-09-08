@@ -65,7 +65,7 @@ sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
 from keras_preprocessing.image import ImageDataGenerator
 
 _gray_aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=1)])] )
-def _preprocessing_grayscale(x):
+def preprocessing_grayscale(x):
     """ ImageDataGeneratorのpreprocessing_functionで3次元画像をグレースケール化 """
     x = _gray_aug(image=x)["image"].astype(np.float32)
     #print(x, x.shape, type(x), type(x[0][0][0]))
@@ -75,7 +75,7 @@ def get_datagen(rescale=1.0/255, is_grayscale=False):
     """画像_前処理実行"""
     if is_grayscale == True:
         datagen = ImageDataGenerator(rescale=rescale # 前処理：画像を0.0~1.0の範囲に変換
-                                     , preprocessing_function=_preprocessing_grayscale) # グレースケール化
+                                     , preprocessing_function=preprocessing_grayscale) # グレースケール化
     else:
         datagen = ImageDataGenerator(rescale=rescale) # 前処理：画像を0.0~1.0の範囲に変換
     return datagen
@@ -116,9 +116,12 @@ class MyImageDataGenerator(ImageDataGenerator):
                  , ricap_use_same_random_value_on_batch = True # RICAP
                  , is_base_aug = False # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
                  , is_grayscale = False # グレースケール化
+                 , *args, **kwargs
                 ):
         # 親クラスのコンストラクタ
-        super().__init__(featurewise_center, samplewise_center, featurewise_std_normalization, samplewise_std_normalization, zca_whitening, zca_epsilon, rotation_range, width_shift_range, height_shift_range, brightness_range, shear_range, zoom_range, channel_shift_range, fill_mode, cval, horizontal_flip, vertical_flip, rescale, preprocessing_function, data_format, validation_split)
+        super().__init__(featurewise_center, samplewise_center, featurewise_std_normalization, samplewise_std_normalization, zca_whitening, zca_epsilon, rotation_range, width_shift_range, height_shift_range, brightness_range, shear_range, zoom_range, channel_shift_range, fill_mode, cval, horizontal_flip, vertical_flip, rescale, preprocessing_function, data_format, validation_split
+                         , *args, **kwargs)
+
         # 拡張処理のパラメーター
         # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
         self.is_base_aug = is_base_aug
