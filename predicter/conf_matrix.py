@@ -70,7 +70,7 @@ def plot_confusion_matrix(cm, classes, output_file,
     plt.show()
     plt.clf()# plotの設定クリアにする
 
-def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4)):
+def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4), is_plot_confusion_matrix=True):
     """
     混同行列を作成する
     Args:
@@ -79,6 +79,7 @@ def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4)):
         y_pred:予測ラベルのnumpy.ndarray　array([0,0,1,…]) (or array(['positive', 'nagative', 'nagative', …]) )
         out_dir:出力先のディレクトリパス
         figsize: 混同行列のplotサイズ
+        is_plot_confusion_matrix: 混同行列画像は作成はしないかのflag（クラス数多すぎると混同行列画僧の作成できないのでそれ避けるため）
     Returns:
         なし（混同行列のファイルを出力する）
     """
@@ -97,13 +98,14 @@ def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4)):
     with open(out_dir+"/report.txt", mode='w') as f:
         f.write(report)
     print(report)
-    # confusion matrixのプロット、保存、表示
-    # http://adliblog.hatenablog.com/entry/2018/02/15/184020 より
-    title="overall accuracy:"+str(accuracy)
-    # 混同行列
-    plot_confusion_matrix(cnf_matrix, classes=classes, output_file=out_dir+"/CM_without_normalize.png", title=title, figsize=figsize)
-    # 正規化した混同行列
-    #plot_confusion_matrix(cnf_matrix, classes=classes, output_file=out_dir+"/CM_normalized.png", normalize=True,title=title)
+    if is_plot_confusion_matrix == True:
+        # confusion matrixのプロット、保存、表示
+        # http://adliblog.hatenablog.com/entry/2018/02/15/184020 より
+        title="overall accuracy:"+str(accuracy)
+        # 混同行列
+        plot_confusion_matrix(cnf_matrix, classes=classes, output_file=out_dir+"/CM_without_normalize.png", title=title, figsize=figsize)
+        # 正規化した混同行列
+        #plot_confusion_matrix(cnf_matrix, classes=classes, output_file=out_dir+"/CM_normalized.png", normalize=True,title=title)
 
 def binary_multi_confmx(classes, y_true_list, y_pred_list, out_dir, figsize=(6, 4)):
     """

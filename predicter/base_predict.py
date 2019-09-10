@@ -89,7 +89,7 @@ def pred_classes_generator(model, generator, steps=None, classes_list=None, verb
         results = pd.DataFrame({"Filename":_label, "PredictionLabel":pred_name_list, "PredictionScore":pred_score_list})
     return results
 
-def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_label_print=True, figsize=(6, 4), y_true_label_np=None):
+def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_label_print=True, figsize=(6, 4), y_true_label_np=None, is_plot_confusion_matrix=True):
     """
     pred_classes_generator() でだした値からconf_matrix.make_confusion_matrix() で混同行列作る
     Arges:
@@ -99,6 +99,7 @@ def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_lab
         is_label_print: ラベル名表示させるか。Trueならprint()でだす
         figsize: 混同行列のplotサイズ
         y_true_label_np: np.arrayの正解ラベル。y_pred_npの要素が文字列型になって出てくる場合は、 y_true_label_np の要素の型は文字列でないとエラー（np.array(y_true_label_np_int, dtype=str)）
+        is_plot_confusion_matrix: 混同行列画像は作成はしないかのflag（クラス数多すぎると混同行列画僧の作成できないのでそれ避けるため）
     Return:
         混同行列のファイル作成
     """
@@ -122,7 +123,7 @@ def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_lab
         print('y_true_label_np:', y_true_label_np)
     #-----------------------------------------------------------------------------------------------------------#
     # 混同行列作成
-    return conf_matrix.make_confusion_matrix(classes, y_true_label_np, y_pred_np, output_dir, figsize=figsize)
+    return conf_matrix.make_confusion_matrix(classes, y_true_label_np, y_pred_np, output_dir, figsize=figsize, is_plot_confusion_matrix=is_plot_confusion_matrix)
 
 
 def pred_classes_evaluate_generator(model, generator, steps=None):
