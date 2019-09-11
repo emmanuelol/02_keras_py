@@ -503,6 +503,35 @@ def print_image_generator(gen, i=0):
         plt.grid(False)
         plt.show()
 
+def label_smoothing_generator(data_generator, smooth_factor=0.1, mask_value=-1.0, is_multi_class=True):
+    """
+    Imagedatagenerator用label_smoothing
+    label_smoothing：分類問題の正解ラベルの1を0.9みたいに下げ、0ラベルを0.1みたいに上げ、過学習軽減させる。
+    間違っている正解ラベルが混じっているデータセットのときに有効
+    Args:
+        data_generator:flow済みImagedatageneratorのインスタンス。d_cls.train_genとか
+        smooth_factor:label_smoothingで下げる割合。smooth_factor=0.1で、5クラス[0,0,1,0,0]なら[0.02,0.02,0.92,0.02,0.02]になる
+        mask_value:欠損値ラベル。label_smoothingでラベル値がマイナスになる場合、mask_valueに置き換える
+        is_multi_class:マルチクラス分類のフラグ。Falseの場合、smooth_factor=0.1で、5クラス[0,0,1,0,0]なら[0.00,0.00,0.90,0.00,0.00]になる
+                       マルチクラス分類の場合softmaxで合計ラベル=1になるが、multiラベルはそうではないので、ラベル値加算したくない時用
+    Returns:
+        Imagedatagenerator（yはlabel_smoothing済み）
+    """
+    def _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class):
+        y_i = y_i.astype('float64') # int型だとエラーになるのでfloatに変換
+        y_i *= 1 - smooth_factor # ラベル値減らす
+        # ラベル値加算するか(マルチクラス分類の場合softmaxで合計ラベル=1になるが、multiラベルはそうではないので)
+        if is_multi_class == True:
+            y_i += smooth_factor / y_i.shape[0]
+        y_i = np.where(y_i < 0.0, mask_value, y_i) # 負の値になったらマスク値に置換する
+        return y_i
+
+    for x, y in data_generator:
+        smooth_y = np.empty(y.shape, dtype=np.float) # yは上書きできないので同じ大きさの空配列用意
+        for i,y_i in enumerate(y):
+            smooth_y[i] = _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class)
+        yield x, smooth_y
+
 if __name__ == '__main__':
     print('get_train_valid_test.py: loaded as script file')
 else:

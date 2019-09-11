@@ -7,10 +7,7 @@ import keras
 import math
 import time
 import numpy as np
-import pandas as pd
-import pathlib
-import warnings
-from sklearn.metrics import roc_auc_score
+import pathlib,  warnings
 
 class MyCheckPoint(keras.callbacks.Callback):
     """
@@ -249,12 +246,9 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
     マルチラベル+欠損値の対応有り
     https://github.com/keras-team/keras/issues/3230
     """
-    def __init__(self, val_gen, steps=None, mask=-1.0):
+    def __init__(self, val_gen, steps):
         self.val_gen = val_gen
         self.steps = steps
-        if steps is None:
-            self.steps = len(self.val_gen)
-        self.mask = mask
         self.val_reports = []
 
     def on_epoch_end(self, epoch, logs={}):
@@ -272,36 +266,41 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
         # 多クラス（マルチラベル）の場合
         if y_true.ndim == 2:
             # クラスごとに分ける
-            #print('')
+            print('\n')
             class_val_reports = []
             for i in range(y_true.shape[1]):
-                y_true_i= y_true[:,i]
+                y_true_i = y_true[:,i]
                 y_pred_i = y_pred[:,i]
+                #print(i)
+                #print(y_true.shape[1])
                 #print(y_true_i)
                 #print(y_pred_i)
-                #print(y_true_i.shape)
-                #print(y_pred_i.shape)
-                val_roc_i = self._del_mask_label_roc_auc_score(y_true_i, y_pred_i)
+
+                # metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除する
+                if len(np.unique(y_true_i)) != 2:
+                    y_df = pd.DataFrame( {'y_true': y_true_i, 'y_pred': y_pred_i}, index=list(range(0, len(y_true_i))) ) # index指定しないとエラーになる
+                    y_df = y_df[y_df['y_true'] != -1.0]# 欠損ラベル=-1.0 以外の行だけにする
+                    y_true_i = np.array(y_df['y_true'])
+                    y_pred_i = np.array(y_df['y_pred'])
+
+                val_roc_i = roc_auc_score(y_true_i, y_pred_i)
                 class_val_reports.append(val_roc_i)
-                #print('class:', i, 'val_roc_auc:', str(round(val_roc_i, 4)))
-            self.val_reports = class_val_reports
-            print('val_roc_auc:', [str(round(val_roc_i, 4)) for val_roc_i in class_val_reports])
+                print('class:', i, 'roc-auc_val:', str(round(val_roc_i, 4)))
+
+            self.val_reports.append(class_val_reports)
 
         else:
-            val_roc = self._del_mask_label_roc_auc_score(y_true , y_pred)
-            self.val_reports.append(val_roc)
-            print('val_roc_auc:', str(round(val_roc, 4)))
+            # metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除する
+            if len(np.unique(y_true)) != 2:
+                y_df = pd.DataFrame( {'y_true': y_true, 'y_pred': y_pred}, index=list(range(0, len(y_true))) ) # index指定しないとエラーになる
+                #print('y_true = ', y_df)
+                y_df = y_df[y_df['y_true'] != -1.0]# 欠損ラベル=-1.0 以外の行だけにする
+                y_true = np.array(y_df['y_true'])
+                y_pred = np.array(y_df['y_pred'])
 
-    def _del_mask_label_roc_auc_score(self, y_true, y_pred):
-        """ metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除してroc_auc計算 """
-        if len(np.unique(y_true)) != 2:
-            y_df = pd.DataFrame( {'y_true': y_true, 'y_pred': y_pred}, index=list(range(0, len(y_true))) ) # index指定しないとエラーになる
-            #print('y_true = ', y_df)
-            y_df = y_df[y_df['y_true'] != self.mask]# 欠損ラベル=self.mask 以外の行だけにする
-            y_true = np.array(y_df['y_true'])
-            y_pred = np.array(y_df['y_pred'])
-        roc = roc_auc_score(y_true , y_pred)
-        return roc
+            val_roc = roc_auc_score(y_true , y_pred)
+            self.val_reports.append(val_roc)
+            print('\nroc-auc_val:', str(round(val_roc, 4)))
 
 # -------------- snapshot ensembleのcallback --------------
 class SnapshotModelCheckpoint(keras.callbacks.Callback):
