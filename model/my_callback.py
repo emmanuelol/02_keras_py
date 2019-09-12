@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pathlib
 import warnings
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score#, average_precision_score
 
 class MyCheckPoint(keras.callbacks.Callback):
     """
@@ -248,6 +248,9 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
     generatorを使う場合
     マルチラベル+欠損値の対応有り
     https://github.com/keras-team/keras/issues/3230
+    Usage:
+        cb = []
+        cb.append(my_callback.RocAucCallbackGenerator(d_cls.valid_gen, steps=len(d_cls.valid_gen), mask=-1.0))
     """
     def __init__(self, val_gen, steps=None, mask=-1.0):
         self.val_gen = val_gen
@@ -255,7 +258,8 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
         if steps is None:
             self.steps = len(self.val_gen)
         self.mask = mask
-        self.val_reports = []
+        self.val_roc = []
+        self.val_pr = []
 
     def on_epoch_end(self, epoch, logs={}):
         # generator をreset() せずにpredict_generator 実行すると順番がグチャグチャでpredict してしまうらしい
@@ -273,7 +277,8 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
         if y_true.ndim == 2:
             # クラスごとに分ける
             #print('')
-            class_val_reports = []
+            val_roc = []
+            val_pr = []
             for i in range(y_true.shape[1]):
                 y_true_i= y_true[:,i]
                 y_pred_i = y_pred[:,i]
@@ -281,27 +286,38 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
                 #print(y_pred_i)
                 #print(y_true_i.shape)
                 #print(y_pred_i.shape)
-                val_roc_i = self._del_mask_label_roc_auc_score(y_true_i, y_pred_i)
-                class_val_reports.append(val_roc_i)
+                val_roc_i, val_pr_i = self._del_mask_label_roc_auc_score(y_true_i, y_pred_i)
+                val_roc.append(val_roc_i)
+                val_pr.append(val_pr_i)
                 #print('class:', i, 'val_roc_auc:', str(round(val_roc_i, 4)))
-            self.val_reports = class_val_reports
-            print('val_roc_auc:', [str(round(val_roc_i, 4)) for val_roc_i in class_val_reports])
-
+            self.val_roc.append(val_roc)
+            self.val_pr.append(val_pr)
+            print('val_roc_auc:', [str(round(val_roc_i, 4)) for val_roc_i in val_roc])
+            #print('val_pr_auc:', [str(round(val_pr_i, 4)) for val_pr_i in val_pr])
         else:
-            val_roc = self._del_mask_label_roc_auc_score(y_true , y_pred)
-            self.val_reports.append(val_roc)
+            val_roc, val_pr = self._del_mask_label_roc_auc_score(y_true, y_pred)
+            self.val_roc.append(val_roc)
+            self.val_pr.append(val_pr)
             print('val_roc_auc:', str(round(val_roc, 4)))
+            #print('val_pr_auc:', str(round(val_pr, 4)))
 
     def _del_mask_label_roc_auc_score(self, y_true, y_pred):
         """ metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除してroc_auc計算 """
+        #print(y_true.shape, y_pred.shape)
+        roc, pr = None, None
         if len(np.unique(y_true)) != 2:
             y_df = pd.DataFrame( {'y_true': y_true, 'y_pred': y_pred}, index=list(range(0, len(y_true))) ) # index指定しないとエラーになる
-            #print('y_true = ', y_df)
+            #print('y_df:', y_df)
             y_df = y_df[y_df['y_true'] != self.mask]# 欠損ラベル=self.mask 以外の行だけにする
             y_true = np.array(y_df['y_true'])
             y_pred = np.array(y_df['y_pred'])
-        roc = roc_auc_score(y_true , y_pred)
-        return roc
+            #print(y_true.shape)
+            # 欠損ラベルのレコードは削除したから、posi/negaの2種ラベルだけになってるはず
+            # ラベルが1種類しかないときはauc計算できないのではじく
+            if len(np.unique(y_true)) == 2:
+                roc = roc_auc_score(y_true, y_pred)
+                #pr = average_precision_score(y_true, y_pred)
+        return roc, pr
 
 # -------------- snapshot ensembleのcallback --------------
 class SnapshotModelCheckpoint(keras.callbacks.Callback):
