@@ -63,6 +63,16 @@ def generator_12output(generator):
         yield X, y_conv
         #yield X, [y[:,0], y[:,1], y[:,2], y[:,3], y[:,4], y[:,5], y[:,6], y[:,7], y[:,8], y[:,9], y[:,10], y[:,11]]
 
+def multi_task_generator_wrapper(generator):
+    """
+    マルチタスクのgenerator
+    generator_12output()と同じことしてる
+    https://medium.com/@vijayabhaskar96/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
+    """
+    for batch_x,batch_y in generator:
+        #print(batch_y.shape)
+        yield (batch_x,[batch_y[:,i] for i in range(batch_y.shape[1])])
+
 ### Dataset distribution utility
 # https://github.com/daisukelab/small_book_image_dataset/blob/master/IF201812%20-Train%20With%20Augmentation.ipynb
 def get_class_distribution(y):
@@ -496,12 +506,23 @@ def print_image_generator(gen, i=0):
     print('x.shape:', x.shape)
     print(f'x[{i}]:\n', x[i])
     print('np.max(x):', np.max(x))
-    print('y.shape:', y.shape)
-    for ii in range(len(y)):
-        print(f'y[{ii}]:', y[ii])
-        plt.imshow(x[ii])
-        plt.grid(False)
-        plt.show()
+    if isinstance(y, list):
+        # マルチタスクの場合
+        print('len(y):', len(y))
+        for ii in range(y[0].shape[0]):
+            y_ii = [y_i[ii] for y_i in y]
+            print(f'y[{ii}]:', y_ii)
+            plt.imshow(x[ii])
+            plt.grid(False)
+            plt.show()
+    else:
+        # シングルタスク/マルチラベルの場合
+        print('y.shape:', y.shape)
+        for ii in range(len(y)):
+            print(f'y[{ii}]:', y[ii])
+            plt.imshow(x[ii])
+            plt.grid(False)
+            plt.show()
 
 def label_smoothing_generator(data_generator, smooth_factor=0.1, mask_value=-1.0, is_multi_class=True):
     """

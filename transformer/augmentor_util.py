@@ -196,7 +196,7 @@ def get_base_IDG_options(input_width, input_height, prob=0.5):
         prob:各水増しoptionsの実行確率
     """
     IDG_options = {'input_width':input_width, 'input_height':input_height
-                   , 'rotate90':prob, 'rotate270':prob, 'rotate_prob':prob
+                   , 'rotate90':prob, 'rotate180':prob, 'rotate270':prob, 'rotate_prob':prob
                    , 'crop_prob':prob
                    , 'shear_prob':prob
                    , 'skew_prob':prob
@@ -204,7 +204,9 @@ def get_base_IDG_options(input_width, input_height, prob=0.5):
                    , 'flip_left_right':prob
                    , 'flip_top_bottom':prob
                    , 'random_dist_prob':prob
-                   , 'random_erasing_prob':prob}
+                   , 'random_erasing_prob':prob
+                   #, 'invert':prob
+                   }
     return IDG_options
 
 
