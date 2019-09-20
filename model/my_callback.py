@@ -11,6 +11,7 @@ import pandas as pd
 import pathlib
 import warnings
 from sklearn.metrics import roc_auc_score#, average_precision_score
+from collections import OrderedDict
 
 class MyCheckPoint(keras.callbacks.Callback):
     """
@@ -304,7 +305,7 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
     def _del_mask_label_roc_auc_score(self, y_true, y_pred):
         """ metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除してroc_auc計算 """
         #print(y_true.shape, y_pred.shape)
-        roc, pr = None, None
+        roc, pr = 0.0, 0.0
         if len(np.unique(y_true)) != 2:
             y_df = pd.DataFrame( {'y_true': y_true, 'y_pred': y_pred}, index=list(range(0, len(y_true))) ) # index指定しないとエラーになる
             #print('y_df:', y_df)
@@ -318,6 +319,70 @@ class RocAucCallbackGenerator(keras.callbacks.Callback):
                 roc = roc_auc_score(y_true, y_pred)
                 #pr = average_precision_score(y_true, y_pred)
         return roc, pr
+
+class HeteroGeniousCallbacks(keras.callbacks.Callback):
+    """
+    重み付きヘテロジニアスラーニング
+    重み付きヘテロジニアスラーニングはマルチタスクラーニングに適用される手法で、事前学習し、タスクごとのclass_weightを導出した後に重みを設定して再度学習する手法
+    https://www.kabuku.co.jp/developers/multiple_improve
+
+    学習の終了時に検証データのロスに対する平均と標準偏差を計算して、タスクごとのclass_weightを計算
+    マルチタスクでは機能する（若干精度上がる）が、マルチクラスでは機能しなかった
+    Usage:
+        hetero_genious_callbacks = my_callback.HeteroGeniousCallbacks()
+        callbacks_list = [hetero_genious_callbacks]
+    """
+
+    def __init__(self,
+                 variable_number: int = 2,
+                 ):
+        super(HeteroGeniousCallbacks, self).__init__()
+
+        self.current_val_loss = {}
+        self.class_weight = {}
+        self.variable_number = variable_number
+
+    def on_epoch_end(self, epoch, logs=None):
+        """ Epoch後の検証データのロスデータを貯める """
+        sort_logs = OrderedDict(
+            sorted(logs.items(), key=lambda x: x[0]))
+        for each_label, each_values in sort_logs.items():
+            if 'val' in each_label and 'loss' in each_label:
+                if each_label not in self.class_weight:
+                    self.class_weight[each_label] = each_values
+                else:
+                    each_values_tmp = self.class_weight[each_label]
+                    each_value_list = np.vstack((each_values,
+                                                 each_values_tmp))
+                    self.class_weight[each_label] = each_value_list
+
+    def on_train_end(self, logs=None):
+        """ 学習終了後に基準タスクとの安定度の比から重みを導出 """
+        self.class_weight = OrderedDict(
+            sorted(self.class_weight.items(), key=lambda x: x[0]))
+
+        val_stable_dict = {}
+        for each_label, each_value_lsit in self.class_weight.items():
+            val_stable_dict[each_label] = \
+                np.average(each_value_lsit) + 3.0 * np.std(each_value_lsit)
+
+        val_stable_dict = OrderedDict(
+            sorted(val_stable_dict.items(), key=lambda x: x[1]))
+
+        most_stable_value = [value for value in val_stable_dict.values()][0]
+
+        index = 0
+        tmp_class_weight = {}
+
+        for each_label in self.class_weight.keys():
+            tmp_class_weight[index] = \
+                val_stable_dict[each_label] / most_stable_value
+            if index >= self.variable_number - 1:
+                break
+            index += 1
+
+        self.class_weight = tmp_class_weight
+        print('hetero genious class weight {}'.format(self.class_weight))
 
 # -------------- snapshot ensembleのcallback --------------
 class SnapshotModelCheckpoint(keras.callbacks.Callback):

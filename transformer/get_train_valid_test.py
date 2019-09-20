@@ -536,7 +536,7 @@ def label_smoothing_generator(data_generator, smooth_factor=0.1, mask_value=-1.0
         is_multi_class:マルチクラス分類のフラグ。Falseの場合、smooth_factor=0.1で、5クラス[0,0,1,0,0]なら[0.00,0.00,0.90,0.00,0.00]になる
                        マルチクラス分類の場合softmaxで合計ラベル=1になるが、multiラベルはそうではないので、ラベル値加算したくない時用
     Returns:
-        Imagedatagenerator（yはlabel_smoothing済み）
+        Imagedatageneratorインスタンス（yはlabel_smoothing済み）
     """
     def _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class):
         y_i = y_i.astype('float64') # int型だとエラーになるのでfloatに変換
