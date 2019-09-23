@@ -844,7 +844,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
     # モデル情報表示
     #model.summary()
     # モデル描画
-    #keras.utils.plot_model(model, to_file = os.path.join(output_dir, 'model.svg'), show_shapes=True)
+    #keras.utils.plot_model(model, to_file = os.path.join(output_dir, 'model.svg'), show_shapes=True, show_layer_names=True)
 
     # マルチじゃないオリジナルのモデル確保 https://github.com/keras-team/keras/issues/8649
     orig_model = model
