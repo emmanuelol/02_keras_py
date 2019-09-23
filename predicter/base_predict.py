@@ -15,6 +15,8 @@ import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 import cv2
+from sklearn import metrics
+from sklearn.preprocessing import LabelBinarizer
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
@@ -474,6 +476,22 @@ def load_img(img_file_path, img_rows, img_cols, preprocess=1.0/255.0):
     # 学習時にImageDataGeneratorのrescaleで正規化したので同じ処理が必要！ これを忘れると結果がおかしくなるので注意
     x = x * preprocess
     return x
+
+def multiclass_roc_auc_score(y_test, y_pred, average="macro"):
+    """
+    multiclassのときのroc_aucを計算する
+    https://medium.com/@plog397/auc-roc-curve-scoring-function-for-multi-class-classification-9822871a6659
+    Args:
+        y_test:マルチクラスの正解ラベルリスト。例:np.array([1, 2, 6, 4, 2, …])
+        y_pred:マルチクラスの予測ラベルリスト。例:np.array([1, 1, 3, 3, 2, …])
+        average:roc_auc_score()のオプション引数。"macro"がroc_auc_score()のデフォルト引数
+    """
+    # LabelBinarizer()でマルチクラスラベルのリストを二値化（one-hotに）して、roc_auc_scoreでauc計算
+    lb = LabelBinarizer()
+    lb.fit(y_test)
+    y_test = lb.transform(y_test)
+    y_pred = lb.transform(y_pred)
+    return metrics.roc_auc_score(y_test, y_pred, average=average)
 
 if __name__ == '__main__':
     print('base_predict.py: loaded as script file')
