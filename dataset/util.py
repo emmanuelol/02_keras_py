@@ -7,6 +7,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+import cv2
 
 def find_all_files(directory):
     """再帰的にファイル・ディレクトリを探して出力するgenerator"""
@@ -43,6 +44,42 @@ def show_file_img(img_path):
     #貼り付け
     plt.imshow(im_list)
     #表示
+    plt.show()
+
+def show_file_crop_img(img_path, ymin, ymax, xmin, xmax):
+    """ファイルパスから画像データを指定領域だけ表示させる"""
+    image = cv2.imread(img_path)
+    img_RGB = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    dst = img_RGB[ymin:ymax, xmin:xmax]
+    plt.imshow(dst / 255.)
+    plt.show()
+
+def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
+    """画像ファイルを指定領域だけ切り抜き保存する"""
+    img = Image.open(img_path)
+    crop_img = img.crop((int(xmin),int(ymin),int(xmax),int(ymax)))
+    if out_dir is not None:
+        save_name = str(Path(img_path).stem)+'_'+str(ymin)+'_'+str(ymax)+'_'+str(xmin)+'_'+str(xmax)+".jpg"
+        crop_img.save(os.path.join(out_dir, save_name))
+    return crop_img
+
+def plot_5imgs(filename_list, plot_num=10):
+    """
+    5枚ずつ並べて画像表示
+    Usage:
+        filenames = glob.glob(data_dir+'/*/*.png')
+        plot_5imgs(filename_list)
+    """
+    print("Num_Images: ",len(filename_list))
+    plt.figure(figsize=(10, 8))
+    for i in range(plot_num):
+        img = plt.imread(filename_list[i], 0)
+        plt.subplot(plot_num//5, 5, i+1)
+        plt.imshow(img)
+        plt.title(img.shape)
+        plt.xticks([])
+        plt.yticks([])
+    plt.tight_layout()
     plt.show()
 
 def find_img_files(path):

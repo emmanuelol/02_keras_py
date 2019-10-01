@@ -1,11 +1,11 @@
 """
 Dash(Pythonの可視化ライブラリ)使ったサンプルコード
-10行単位でデータフレーム表示して、指定列のヒストグラムをplotするアプリ
+10行単位でデータフレーム表示して、指定列のヒストグラムをplotするアプリ（ロードするデータフレームにid列必要）
 https://dash.plot.ly/datatable/interactivity
 （https://dash.plot.ly/dash-core-components）
 Usage:
     $ activate tfgpu_py36_v3
-    $ python app_datatable.py
+    $ python app_datatable_id_hist.py
     → http://localhost/80
 """
 import dash

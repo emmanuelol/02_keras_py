@@ -1,8 +1,14 @@
 @rem 作成日2019/8/11 iPhone画像予測分類して予測クラスディレクトリにコピーする
 
-call activate tfgpu_py36_v3
+call activate tfgpu_py36_v4
 cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\predicter
 
+@rem --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+@rem 実行テスト
+rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\TEST\output -i D:\work\keras_iPhone_pictures\TEST\input
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\TEST\input -o D:\work\keras_iPhone_pictures\TEST\output
+
+@rem --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2016-01 -i D:\iPhone_pictures\2016-01
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2016-02 -i D:\iPhone_pictures\2016-02
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2016-03 -i D:\iPhone_pictures\2016-03
@@ -42,13 +48,13 @@ rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classe
 
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-01 -i D:\iPhone_pictures\2019-01
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-02 -i D:\iPhone_pictures\2019-02
-call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -i D:\iPhone_pictures\2019-08
+rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -i D:\iPhone_pictures\2019-08
 
 @rem --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @rem 作成日2019/8/11 iPhoneモデルで似ている画像を集めてタイル化（Reframe Visualization）
 
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07
-call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08
 
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin
