@@ -1,5 +1,5 @@
 # 02_keras_py
-keras2.1.5+tensorflow1.8+lightgbm2.2.3+optuna0.7.0  
+keras2.2.4+tensorflow1.13.1+lightgbm2.2.3+optuna0.7.0  
 My Library for creating image classification models for Windows(GeForce 1080)  
 
 ## Setup
