@@ -88,6 +88,11 @@ from efficientnet import EfficientNetB0, EfficientNetB1, EfficientNetB2, Efficie
 sys.path.append( str(current_dir) + '/../Git/PeleeNet-Keras' )
 import pelee_net_keras
 
+# githubのRAdamをimport
+# https://github.com/CyberZHG/keras-radam
+sys.path.append( str(current_dir) + '/../Git/keras-radam' )
+from keras_radam import RAdam
+
 def save_architecture(model, output_dir):
     """モデルの構造保存"""
     os.makedirs(output_dir, exist_ok=True)
@@ -504,6 +509,22 @@ def get_adabound(lr=0.001, final_lr=0.1, beta_1=0.9, beta_2=0.999, gamma=1e-3, e
     else:
         print("It can not be imported because there is no adabound library.Please obtain the adabound library from 'https://github.com/titu1994/keras-adabound'.")
 
+def get_radam(learning_rate=0.001, beta_1=0.9, beta_2=0.999,
+              epsilon=None, decay=0., weight_decay=0., amsgrad=False,
+              total_steps=0, warmup_proportion=0.1, min_lr=0.):
+    """
+    githubのRAdamをimport
+    https://github.com/CyberZHG/keras-radam
+    ※Rectified Adam（RAdam）: Adamの改良版optimaizer. Adam 学習開始時の LR 調整（ウォームアップ）を自動化する
+                              初期学習率の低いウォームアップ（最初の小さいlrからはじめて数epochはlr上げる手法）を適用
+                              入力バッチの最初の数セットのmomentumをオフにする
+                              参考：https://nykergoto.hatenablog.jp/entry/2019/08/16/Adam_%E3%81%AE%E5%AD%A6%E7%BF%92%E4%BF%82%E6%95%B0%E3%81%AE%E5%88%86%E6%95%A3%E3%82%92%E8%80%83%E3%81%88%E3%81%9F%E8%AB%96%E6%96%87_RAdam_%E3%82%92%E8%AA%AD%E3%82%93%E3%81%A0%E3%82%88%21
+
+    コンパイル済みモデルでロードする場合はcustom_objectsが必要
+    from keras_radam import RAdam
+    model = keras.models.load_model(os.path.join(output_dir, 'finetuning.h5'), custom_objects={'RAdam':RAdam})
+    """
+    return RAdam(learning_rate=learning_rate, decay=decay, weight_decay=weight_decay, beta_1=beta_1, beta_2=beta_2, amsgrad=amsgrad, total_steps=total_steps, warmup_proportion=warmup_proportion, min_lr=min_lr)
 
 def get_attention_ptmodel(ptmodel, shape, num_classes, activation, ptmodel_trainable=False):
     """
@@ -572,6 +593,7 @@ def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
                    , rmsprop_rho=0.9#, epsilon=None # RMSprop
                    , adadelta_rho=0.95 # Adadelta
                    , beta_1=0.9, beta_2=0.999, amsgrad=False # Adam, Adamax, Nadam
+                   , total_steps=0, warmup_proportion=0.1, min_lr=0 # RAdam
                   ):
     """
     オプティマイザを取得する
@@ -630,7 +652,11 @@ def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
             lr=0.001
         optim = get_adabound(lr=lr, final_lr=lr*10, decay=decay, beta_1=beta_1, beta_2=beta_2, amsbound=amsgrad)
         print('adabound_lr adabound_final_lr adabound_decay beta_1 beta_2, amsbound =', lr, lr*10, decay, beta_1, beta_2, amsgrad)
-
+    elif choice_optim == 'radam':
+        if lr == 0.0:
+            lr=0.001
+        optim = get_radam(learning_rate=lr, decay=decay, beta_1=beta_1, beta_2=beta_2, amsgrad=amsgrad, total_steps=total_steps, warmup_proportion=warmup_proportion, min_lr=min_lr)
+        print('radam_lr radam_decay beta_1 beta_2, amsgrad total_steps warmup_proportion min_lr =', lr, decay, beta_1, beta_2, amsgrad, total_steps, warmup_proportion, min_lr)
     return optim
 
 

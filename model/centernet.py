@@ -58,6 +58,7 @@ input_width,input_height = 512,512 # Centernetの入力層のサイズ
 output_layer_n = category_n+4
 output_height,output_width = input_width//4,input_height//4 # Centernetの出力層のサイズ
 base_detect_num_h, base_detect_num_w = 25, 25 # 検出できる最小領域サイズ
+max_rect = 500 # 検出する枠線最大数
 ########################################## step1 Encoder ##########################################
 
 def Datagen_sizecheck_model(input_for_size_estimate, batch_size, size_detection_mode=True, is_train=True, random_crop=True, input_width=512, input_height=512):
@@ -675,7 +676,7 @@ def NMS(score, y_c, x_c, height, width, iou_thresh, merge_mode=False):
         box_idx=box_idx[still_alive]
     return boxes[alive_box]#score,top,left,bottom,right
 
-def draw_rectangle(box_and_score, img, color, max_rect=500):
+def draw_rectangle(box_and_score, img, color, max_rect=max_rect):
     """
     画像に枠線を書く
     Args:
@@ -1020,7 +1021,6 @@ def predict_pipeline(model_1, model_2, model_3
                 plt.imshow(x/255)
                 plt.show()
                 print(code)
-
     else:
         ans=""
     return ans
@@ -1061,7 +1061,7 @@ def convert_input_data(path_1, path_2, path_3, path_4):
         df_train, category_names, inv_dict_cat, annotation_list_train, id_test, df_submission = \
         centernet.convert_input_data(path_1, path_2, path_3, path_4)
     """
-    df_train=pd.read_csv(path_1)
+    df_train = pd.read_csv(path_1)
     df_train = df_train.dropna(axis=0, how='any')#you can use nan data(page with no letter)
     df_train = df_train.reset_index(drop=True)
     print('df_train:')
