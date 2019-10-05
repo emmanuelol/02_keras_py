@@ -63,20 +63,29 @@ def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
         crop_img.save(os.path.join(out_dir, save_name))
     return crop_img
 
-def plot_5imgs(filename_list, plot_num=10):
+def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None):
     """
-    5枚ずつ並べて画像表示
+    5枚ずつ並べて画像表示。np.ndarrayの画像データでも表示可能
     Usage:
-        filenames = glob.glob(data_dir+'/*/*.png')
-        plot_5imgs(filename_list)
+        img_list = glob.glob(data_dir+'/*/*.png')
+        plot_5imgs(img_list)
     """
-    print("Num_Images: ",len(filename_list))
-    plt.figure(figsize=(10, 8))
+    if isinstance(img_list, np.ndarray):
+        print("Num_Images: ", img_list.shape[0])
+    else:
+        print("Num_Images: ", len(img_list))
+    plt.figure(figsize=figsize)
     for i in range(plot_num):
-        img = plt.imread(filename_list[i], 0)
+        if isinstance(img_list, np.ndarray):
+            img = img_list[i]
+        else:
+            img = plt.imread(img_list[i], 0)
         plt.subplot(plot_num//5, 5, i+1)
         plt.imshow(img)
-        plt.title(img.shape)
+        if labels is not None:
+            plt.title(str(labels[i])+' '+str(img.shape))
+        else:
+            plt.title(img.shape)
         plt.xticks([])
         plt.yticks([])
     plt.tight_layout()
