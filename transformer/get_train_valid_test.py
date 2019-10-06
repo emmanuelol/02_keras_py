@@ -452,7 +452,7 @@ def get_folds(X, y, cv_count, split_seed, stratify=None):
     Args:
         X: 入力データ。
         y: 出力データ。
-        cv_count (int): 分割数。
+        cv_count (int): 分割数。cv_count=5なら train:valid=8:2 のcvが5つできる
         split_seed (int): 乱数のseed。
         stratify (bool or None): StratifiedKFold (CVをする際に、ラベルの割合が揃うにtrainデータとtestデータを分けてくれてるもの) にするならTrue。
     Returns:

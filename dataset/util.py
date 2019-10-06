@@ -46,12 +46,13 @@ def show_file_img(img_path):
     #表示
     plt.show()
 
-def show_file_crop_img(img_path, ymin, ymax, xmin, xmax):
+def show_file_crop_img(img_path, ymin, ymax, xmin, xmax, label=''):
     """ファイルパスから画像データを指定領域だけ表示させる"""
     image = cv2.imread(img_path)
     img_RGB = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     dst = img_RGB[ymin:ymax, xmin:xmax]
     plt.imshow(dst / 255.)
+    plt.title(str(label)+' '+str(dst.shape))
     plt.show()
 
 def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
@@ -227,6 +228,21 @@ def show_tile_img(images_4tensor):
         else:
             tile = np.vstack(( tile, np.hstack(images_4tensor[i*+collage_n_x:i*+collage_n_x+collage_n_x]) )) # np.vstackは垂直方向積上げ
     show_np_img(tile)
+
+def resize_ndarray(x, input_shape=(380,380,3)):
+    """
+    ndarray型の画像を指定サイズにリサイズする
+    http://pynote.hatenablog.com/entry/keras-image-utils
+    http://pynote.hatenablog.com/entry/pillow-resize
+    """
+    import tensorflow.keras
+    # ndarray から PIL 形式に変換する
+    img = tensorflow.keras.preprocessing.image.array_to_img(x)
+    # 指定した大きさにリサイズする
+    img = img.resize((input_shape[0], input_shape[1]), resample=0)
+    # PIL 形式から ndarray に変換する
+    x = tensorflow.keras.preprocessing.image.img_to_array(img)
+    return x
 
 if __name__ == '__main__':
     print('util.py: loaded as script file')
