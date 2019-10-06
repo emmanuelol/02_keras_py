@@ -243,6 +243,23 @@ def tsv_logger(filename, append=False):
     return _TSVLogger(filename=filename, append=append)#, enabled=enabled)
 
 
+def get_base_cb(output_dir, epochs, cosine_annealing_num_epoch=None, early_stopping=50):
+    """ 基本のcallbackの組み合わせ """
+    cb = []
+    # 学習率をエポック増やすごとにコサインカーブで上げ下げする. epochsはコサインカーブのほぼ半周期になるエポック数
+    cb.append(cosine_annealing(epochs=epochs))
+    # ログを保存するカスタムコールバック
+    cb.append(tsv_logger(os.path.join(output_dir, 'tsv_logger.tsv')))
+    # epochごとに学習曲線保存する自作callback
+    cb.append(learning_curve_plot(os.path.join(output_dir, 'learning_curve.png')))
+    # 各エポックでval_lossが最小となるモデル保存
+    cb.append(keras.callbacks.ModelCheckpoint(filepath=os.path.join(output_dir, 'best_val_loss.h5'), monitor='val_loss', save_best_only=True, verbose=1))
+    # 各エポックでval_accが最大となるモデル保存
+    cb.append(keras.callbacks.ModelCheckpoint(filepath=os.path.join(output_dir, 'best_val_acc.h5'), monitor='val_acc', save_best_only=True, verbose=1, mode='max'))
+    # 過学習の抑制 <early_stopping_pati>step続けてval_loss減らなかったら打ち切る
+    cb.append(keras.callbacks.EarlyStopping(monitor='val_loss', patience=early_stopping, verbose=1))
+    return cb
+
 class RocAucCallbackGenerator(keras.callbacks.Callback):
     """
     二値分類のとき使うroc_aucを計算するコールバック
