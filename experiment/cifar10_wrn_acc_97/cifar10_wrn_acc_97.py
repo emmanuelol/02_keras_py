@@ -396,7 +396,7 @@ def build_wrn_model(shape=(32,32,3), num_classes=10, wrn_size=160):
     return Model(input, x)
 ################################################################################################
 
-def train(mode, output_dir, epochs=300, batch_size=128, is_tpu=False, load_model_path=None):
+def train(mode, output_dir, epochs=300, batch_size=128, is_tpu=False, load_model_path=None, verbose=1):
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
     y_train, y_test = to_categorical(y_train), to_categorical(y_test)
 
@@ -448,7 +448,8 @@ def train(mode, output_dir, epochs=300, batch_size=128, is_tpu=False, load_model
     # 訓練
     model.fit_generator(train_gen, steps_per_epoch=X_train.shape[0]//batch_size,
                         validation_data=val_gen, validation_steps=X_test.shape[0]//batch_size,
-                        callbacks=[scheduler, cb, hist], epochs=epochs) # cosine decayの場合は300epoch
+                        callbacks=[scheduler, cb, hist], epochs=epochs
+                        , verbose=verbose) # cosine decayの場合は300epoch
     # 係数読み込み
     #model.load_weights("model.hdf5")
     model.load_weights(load_model_path)

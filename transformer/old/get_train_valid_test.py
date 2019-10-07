@@ -26,7 +26,6 @@ import keras
 from keras.preprocessing import image
 #from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
 import sklearn
-import copy
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
@@ -107,93 +106,52 @@ def balance_class_by_over_sampling(X, y): # Naive: all sample has equal weights
     return np.array([X[idx] for idx in sampled_index]), np.array([y[idx] for idx in sampled_index])
 
 
-def get_dict_class_counts(label_array: np.ndarray, is_maximize_all_class=False, is_minimize_all_class=False):
-    """
-    one-hot前のラベルからクラスidとそのクラスidの総数の辞書を返す
-    Args:
-        label_array:one-hot前のラベル。np.array([1,1,1,3,2,1]) や np.array(['a','a','a','c','b','a']) みたいなの
-        is_maximize_all_class:全てのクラスで数が一番多いのにするか。一番多いクラスの数が4なら、dict_class_id_countsが{1: 4, 2: 4, 3: 4}みたいになる
-        is_minimize_all_class:全てのクラスで数が一番少ないのにするか。一番少ないクラスの数が1なら、dict_class_id_countsが{1: 1, 2: 1 3: 1}みたいになる
-    Returns:
-        dict_class_id_counts:クラスidとそのクラスidの総数の辞書。{1: 4, 2: 1, 3: 1} や {'a': 4, 'b': 1, 'c': 1} みたいなの
-    """
-    class_unique, class_counts = np.unique(label_array, return_counts=True)
-    dict_class_counts = {}
-
-    # 全てのクラスで数が一番多いのにするか
-    if is_maximize_all_class == True:
-        max_count = class_counts.max()
-        class_counts = np.array([max_count for c in class_counts])
-
-    # 全てのクラスで数が一番少ないのにするか
-    if is_minimize_all_class == True:
-        min_count = class_counts.min()
-        class_counts = np.array([min_count for c in class_counts])
-
-    for i in range(len(class_counts)):
-        dict_class_counts[class_unique[i]] = class_counts[i]
-    return dict_class_counts
-
-def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, dict_class_counts, mode="OVER", random_state=71, is_plot=True):
+def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, dict_ratio, is_over_sampling_type=True, random_state=71, is_plot=True):
     """ imblearnでunder/over_sampling（各クラスのサンプル数を全クラスの最小/最大数になるまで減らす/増やす）
     Arges:
         X: 説明変数（numpy型の画像パス:np.array[a.img,b.img,…]や、numpy型の画像データ:[[0.2554,0.59285,…][…]]みたいなの）
         y: 目的変数（numpy型のクラスidのラベル。np.array[4,0,1,2,…]みたいなの）
-        dict_class_counts: {0:200, 1:300, 2:500, …}のようにクラスid:クラスidのサンプル数の辞書.クラスidのサンプル数になるようにsamplingする
-        mode: "OVER"ならRandomOverSampler. "UNDER"ならRandomUnderSampler. "SMOTE"ならSMOTE
+        dict_ratio: {0:200, 1:300, 2:500, …}のようにクラスid:クラスidのサンプル数の辞書
+                    RandomUnderSampler: 各クラスのサンプル数が一番数が少ないクラスの数になる（この例だと{0:200, 1:200, 2:200, …}になる）
+                    RandomOverSampler:  各クラスのサンプル数が一番数が多いクラスの数になる（この例だと{0:500, 1:500, 2:500, …}になる
+        is_over_sampling_type: TrueならRandomOverSampler. FalseならRandomUnderSampler
         random_state: under/over_samplingでつかう乱数シード
         is_plot: Trueならunder/over_sampling後の各クラスの分布を棒グラフで可視化する
     Returns:
         under_sampling後のX, y
     Usage:
-        dict_class_counts = get_train_valid_test.get_dict_class_counts(y, is_maximize_all_class=True) # one-hot前のラベルからクラスidとそのクラスidの総数の辞書を返す
-        X_resampled, y_resampled = imblearn_under_over_sampling(np.array(train_files), y_train, dict_class_counts, is_over_sampling_type=False, is_plot=True)
+        dict_ratio = {0:pd.Series(y_train[:,0]).value_counts()[1.0], 1:pd.Series(y_train[:,0]).value_counts()[1.0]} # シリーズを辞書に変換
+        x_id = np.array(range(df_train_labels.shape[0]))
+        X_id_resampled, y_resampled = imblearn_under_over_sampling(x_id, y_train, dict_ratio, is_over_sampling_type=False, is_plot=True)
+        x_resampled = np.array([train_imgs[i[0]] for i in x_id_resampled])
     """
     from imblearn.under_sampling import RandomUnderSampler
     from imblearn.over_sampling import RandomOverSampler
-    from imblearn.over_sampling import SMOTE
 
-    # Xが四次元ベクトルの画像データの場合
-    X_img = None
-    if len(X.shape) == 4:
-        X_img = copy.deepcopy(X) # 参照でなく複製
-        X = np.array([xidx for xidx in range(len(X))])# Xを画像idにする
-        #print(X)
-
-    def _sampling(dict_class_counts, mode, random_state):
-        if mode == "OVER":
-            sample = RandomOverSampler(ratio=dict_class_counts, random_state=random_state)
-        if mode == "UNDER":
-            sample = RandomUnderSampler(ratio=dict_class_counts, random_state=random_state)
-        # SMOTEはうまくいかず
-        #if mode == "SMOTE":
-        #    sample = SMOTE(ratio=dict_class_counts, random_state=random_state)
-        return sample
-
-    def _imblearn_sampling(X, y, dict_class_counts, mode, random_state, is_plot):
-        sample = _sampling(dict_class_counts, mode, random_state)
-        X_resampled, y_resampled = sample.fit_sample(pd.DataFrame(X), y)
+    def _imblearn_sampling(X, y, dict_ratio, is_over_sampling_type, random_state, is_plot):
+        if is_over_sampling_type == True:
+            imblearn_func = RandomOverSampler
+        else:
+            imblearn_func = RandomUnderSampler
+        ros = imblearn_func(ratio = dict_ratio, random_state=random_state)
+        X_resampled, y_resampled = ros.fit_sample(pd.DataFrame(X), y)
 
         if is_plot == True:
             print('X.shape y.shape:', X.shape, y.shape)
-            count = pd.Series(y_resampled).value_counts()
+            print('X_resampled.shape y_resampled.shape:', X_resampled.shape, y_resampled.shape)
+            #print(pd.Series(X_resampled[:,0]).value_counts().head())
+            if is_over_sampling_type == True:
+                count = pd.Series(y_resampled).value_counts()
+            else:
+                count = pd.Series(y_resampled[:,0]).value_counts()
             print('y_resampled.value_counts():')
             print(count)
             count.plot.bar()
             plt.title(u'y_resampled.value_counts()')
-            plt.show()
 
         return X_resampled, y_resampled
 
-    X_resampled, y_resampled = _imblearn_sampling(X, y, dict_class_counts, mode, random_state, is_plot)
-
-    # Xが四次元ベクトルの画像データの場合
-    if X_img is not None:
-        #print(X_resampled) # X_resampledが画像idになっている
-        X_resampled = np.array([X_img[i][0] for i in X_resampled])
-
-    print('X_resampled.shape y_resampled.shape:', X_resampled.shape, y_resampled.shape)
-    return X_resampled, y_resampled
+    return _imblearn_sampling(X, y, dict_ratio, is_over_sampling_type, random_state, is_plot)
 
 
 ### Dataset management class

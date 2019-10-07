@@ -394,6 +394,20 @@ class MyImageDataGenerator(ImageDataGenerator):
             # 返り値
             yield self.custom_process(batches)
 
+
+def get_cifar10_best_train_generator(x_train, y_train, batch_size):
+    """
+    CIFAR10のbest ImageDataGenerator 取得
+    C:/Users/shingo/jupyter_notebooktfgpu_py36_work/02_keras_py/experiment/cifar10_wrn_acc_97/cifar10_wrn_acc_97.py より
+    Args:
+        x_train:前処理前の画像array
+        y_train:ラベルarray
+        batch_size:バッチサイズ
+    """
+    from experiment.cifar10_wrn_acc_97 import cifar10_wrn_acc_97
+    train_gen = cifar10_wrn_acc_97.mode7_generator(x_train, y_train, batch_size)
+    return train_gen
+
 if __name__ == '__main__':
     print('my_generator.py: loaded as script file')
 else:
