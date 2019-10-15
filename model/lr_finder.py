@@ -32,8 +32,13 @@ class LearningRateFinder:
             batchSize=config.BATCH_SIZE)
 
         # 学習率の損失プロット結果をディスクに保存
-        lrf.plot_loss()
+        lrs, losses = lrf.plot_loss()
         plt.savefig(config.LRFIND_PLOT_PATH)
+
+        # 学習率の損失tsvファイルに保存
+        df_lrs = pd.DataFrame({'lrs':lrs, 'losses':losses})
+        display(df_lrs.head())
+        df_lrs.to_csv('lr_finder_EfficientNet4.tsv', sep='\t', index=False)
     """
     def __init__(self, model, stopFactor=4, beta=0.98):
         # モデル、停止係数、ベータ値を保存（平滑化された平均損失を計算するため）
@@ -149,6 +154,8 @@ class LearningRateFinder:
 
         # モデルの重みの一時ファイルパスを作成し、重みを保存します（完了したら重みをリセットできます）
         self.weightsFile = tempfile.mkstemp()[1]
+        #print(self.weightsFile)
+        #print(self.model)
         self.model.save_weights(self.weightsFile)
 
         # （元の）学習率を取得し（後でリセットできるようにします）、次に*開始*学習率を設定します
@@ -183,7 +190,7 @@ class LearningRateFinder:
         K.set_value(self.model.optimizer.lr, origLR)
 
     def plot_loss(self, skipBegin=10, skipEnd=1, title=""):
-        # 学習率と損失値を取得してプロットする
+        # 学習率と損失値を取得してプロットする。lrs, lossesも返す
         lrs = self.lrs[skipBegin:-skipEnd]
         losses = self.losses[skipBegin:-skipEnd]
 
@@ -196,3 +203,4 @@ class LearningRateFinder:
         # タイトルが空ではない場合、プロットにタイトル追加します
         if title != "":
             plt.title(title)
+        return lrs, losses

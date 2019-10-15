@@ -725,7 +725,8 @@ def FC_0_5_layer(x, FCnum
     return x
 
 def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
-                            , choice_model, trainable
+                            , choice_model
+                            , trainable='all'
                             , FCnum=0# 1,2,3,4,5
                             , FCpool='GlobalAveragePooling2D'
                             , Dence_1=1024, Dropout_1=0.5, addBatchNorm_1=None, kernel_initializer_1='he_normal', l2_rate_1=1e-4
@@ -885,7 +886,8 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
 
 
 def get_12branch_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
-                            , choice_model, trainable
+                            , choice_model
+                            , trainable='all'
                             , FCnum=0# 1,2,3,4,5
                             , FCpool='GlobalAveragePooling2D'
                             , Dence_1=1024, Dropout_1=0.5, addBatchNorm_1=None, kernel_initializer_1='he_normal', l2_rate_1=1e-4
