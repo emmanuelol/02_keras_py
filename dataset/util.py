@@ -155,6 +155,28 @@ def ipywidgets_show_img(img_path_list, figsize=(9, 9), is_grayscale=False):
         plt.show()
     interact(view_image, index=(0, len(img_path_list) - 1))
 
+
+def creat_gif_from_images(output_gif_path, image_paths, duration=0.5):
+    """
+    imageio使って画像ファイルのリストからgif画像を作成
+    https://codeday.me/jp/qa/20190323/466095.html
+    Args:
+        output_gif_path:出力するgif画像のパス
+        image_paths:画像ファイルパスのリスト
+        duration:gif画像の各フレームの表示秒。あまりにも小さい値だと反映されない
+    Usage:
+        # jupyterなら以下の文でgif画像表示できる
+        from IPython.display import Image
+        with open("images/movie.gif",'rb') as f:
+            display(Image(data=f.read(), format='png'))
+    """
+    import imageio
+    kargs = { 'duration': duration } # gif画像のフレームレイト
+    gif_images = []
+    for filename in image_paths:
+        gif_images.append(imageio.imread(filename))
+    imageio.mimsave(output_gif_path, gif_images, **kargs)
+
 def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=42
                       , is_umap=True, point_size=None, is_axis_off=True, is_show=True
                       , n_neighbors=15, min_dist=0.1
