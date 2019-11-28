@@ -597,6 +597,26 @@ def label_smoothing_generator(data_generator, smooth_factor=0.1, mask_value=-1.0
             smooth_y[i] = _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class)
         yield x, smooth_y
 
+def label2onehot(labels:np.ndarray):
+    """
+    sklearnでnp.ndarrayのラベルをonehot化
+    Args:
+        labels:onehot化するラベル名の配列.np.array(['high' 'high' 'low' 'low'])のようなの
+    Returns:
+        enc:ラベル名を0-nの連番にした配列。np.array([[0] [0] [1] [1]])のようなの
+        onehot:ラベル名をonehotにした配列。np.array([[1. 0.] [1. 0.] [0. 1.] [0. 1.]])のようなの
+    Usage:
+        labels = df['aaa'].values
+        enc, onehot = label2onehot(labels)
+    """
+    from sklearn import preprocessing
+    from sklearn.preprocessing import OneHotEncoder
+
+    enc = preprocessing.LabelEncoder().fit_transform(labels).reshape(-1,1)
+    onehot = OneHotEncoder().fit_transform(enc).toarray()
+    return enc, onehot
+
+
 if __name__ == '__main__':
     print('get_train_valid_test.py: loaded as script file')
 else:

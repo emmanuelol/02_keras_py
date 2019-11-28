@@ -49,12 +49,16 @@ rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classe
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-01 -i D:\iPhone_pictures\2019-01
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-02 -i D:\iPhone_pictures\2019-02
 rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -i D:\iPhone_pictures\2019-08
+rem call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-09 -i D:\iPhone_pictures\2019-09
+call python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-10 -i D:\iPhone_pictures\2019-10
 
 @rem --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @rem 作成日2019/8/11 iPhoneモデルで似ている画像を集めてタイル化（Reframe Visualization）
 
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-07
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-08
+rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-09 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-09
+call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-10 -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-10
 
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\beagle
 rem call python reframe_visualization.py -i D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\merge\marin
