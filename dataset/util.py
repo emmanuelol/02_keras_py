@@ -64,7 +64,7 @@ def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
         crop_img.save(os.path.join(out_dir, save_name))
     return crop_img
 
-def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None):
+def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None, is_gray=False):
     """
     5枚ずつ並べて画像表示。np.ndarrayの画像データでも表示可能
     Usage:
@@ -76,21 +76,38 @@ def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None):
     else:
         print("Num_Images: ", len(img_list))
     plt.figure(figsize=figsize)
+    # 並べる画像の行数
+    rows = plot_num//5
+    if rows < plot_num/5.0:
+        rows += 1
+    #print(f"rows: {rows}")
     for i in range(plot_num):
         if isinstance(img_list, np.ndarray):
             img = img_list[i]
         else:
-            img = plt.imread(img_list[i], 0)
-        plt.subplot(plot_num//5, 5, i+1)
-        plt.imshow(img)
+            img = plt.imread(img_list[i])
+            # 画像2次元ならグレースケール
+            if len(img.shape) == 2:
+                is_gray = True
+            if is_gray == True:
+                img = plt.imread(img_list[i], 0) # 第二引数0でグレースケール画像として読み込む.
+        plt.subplot(rows, 5, i+1)
+        if is_gray == True:
+            plt.imshow(img, cmap="gray") # グレースケールで表示.
+        else:
+            plt.imshow(img)
         if labels is not None:
-            plt.title(str(labels[i])+' '+str(img.shape))
+            plt.title(str(labels[i])+'\n'+str(img.shape))
         else:
             plt.title(img.shape)
         plt.xticks([])
         plt.yticks([])
+        # 全件plotしたらbreak
+        if len(img_list) == i+1:
+            break
     plt.tight_layout()
     plt.show()
+    plt.clf()
 
 def find_img_files(path):
     """
@@ -253,7 +270,7 @@ def show_tile_img(images_4tensor):
 
 def resize_ndarray(x, input_shape=(380,380,3)):
     """
-    ndarray型の画像を指定サイズにリサイズする
+    tensorflow.kerasでndarray型の画像を指定サイズにリサイズする
     http://pynote.hatenablog.com/entry/keras-image-utils
     http://pynote.hatenablog.com/entry/pillow-resize
     """

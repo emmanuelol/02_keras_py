@@ -676,9 +676,10 @@ def FC_batch_drop(x, activation='relu', dence=1024, dropout_rate=0.5, addBatchNo
     Returns:
         全結合1層(x)
     """
-    x = Dense(dence, activation=activation, kernel_initializer=kernel_initializer, kernel_regularizer=regularizers.l2(l2_rate), name=name+'_dence')(x)
+    x = Dense(dence, kernel_initializer=kernel_initializer, kernel_regularizer=regularizers.l2(l2_rate), name=name+'_dence')(x)
     if addBatchNorm != None:
         x = BatchNormalization(name=name+'_batchNormalization')(x)
+    x = Activation(activation)(x) # BatchNormalizationはDenseと活性化の間
     if dropout_rate > 0:
         x = Dropout(dropout_rate, name=name+'_dropout')(x)
     print('dence dropout addBatchNorm kernel_initializer l2_rate =', dence, dropout_rate, addBatchNorm, kernel_initializer, l2_rate)
