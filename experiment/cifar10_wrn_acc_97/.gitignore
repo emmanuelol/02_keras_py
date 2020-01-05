@@ -1,5 +1,2 @@
 # Git の管理に含めないファイルを指定するためのファイル https://qiita.com/inabe49/items/16ee3d9d1ce68daa9fff
-/__pycache__/
-/old/
-/.ipynb_checkpoints/
-/output_test_optuna/
+__pycache__/

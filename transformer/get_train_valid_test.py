@@ -213,6 +213,10 @@ class LabeledDataset:
         self.train_batch_size = train_batch_size
         self.valid_batch_size = valid_batch_size
         self.test_batch_size = test_batch_size
+        self.X_train, self.y_train, self.train_gen = None, None, None
+        self.X_valid, self.y_valid, self.valid_gen = None, None, None
+        self.X_test, self.y_test, self.test_gen = None, None, None
+        self.init_train_steps_per_epoch, self.init_valid_steps_per_epoch, self.init_test_steps_per_epoch = None, None, None
         # 画像総数指定あればsteps_per_epoch計算する
         if train_samples != 0:
             self.init_train_steps_per_epoch = train_samples // self.train_batch_size
