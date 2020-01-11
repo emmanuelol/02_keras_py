@@ -605,6 +605,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
                             , oct_conv_alpha=0.25 # OctConv_WideResNet の低周波と高周波のチャンネル数の割り振り具合であるα
                             , efficientnet_num=3 # EfficientNet の種類指定 0,1,2,3,4,5,6,7 のいずれかしかだめ
                             , is_keras=True # EfficientNet keras版を使うか
+                            , is_base_model_trainable=True # attentionモデルのベースモデルの重み更新するか
                             , n_multitask=1, multitask_pred_n_node=2
                             , is_imagenet_model_save=True
                             ):
@@ -677,7 +678,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
 
     # attensionレイヤー付けるor全結合多層にするか
     if fcpool=='attention':
-        model = get_attention_ptmodel(num_classes, activation, base_pretrained_model=trained_model)
+        model = get_attention_ptmodel(num_classes, activation, base_pretrained_model=trained_model, base_model_trainable=is_base_model_trainable)
     else:
         x = trained_model.output
         # 学習済みモデルのpooling指定

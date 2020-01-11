@@ -47,9 +47,8 @@ def main():
             , 331, 331, 3
             , 11
             , 'EfficientNet', 190
-            , FCnum=2
+            , fcs=[1024, 512]
             , activation='softmax'
-            , add_se=False
             , efficientnet_num=3
         )
         model_EfficientNetB3.load_weights(model_EfficientNetB3_path)

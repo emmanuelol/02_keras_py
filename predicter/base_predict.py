@@ -29,12 +29,12 @@ from predicter import conf_matrix
 from dataset import util
 from predicter import ensemble_predict
 
-# imgaug は["scipy", "scikit-image>=0.11.0", "numpy>=1.15.0", "six", "imageio", "Pillow", "matplotlib","Shapely", "opencv-python"] の依存ライブラリ必要
-sys.path.append( str(current_dir) + '/../Git/imgaug' )
-import imgaug
-# albumentations はimgaug をimport しておかないとimport できない
-sys.path.append( str(current_dir) + '/../Git/albumentations' )
-import albumentations
+## imgaug は["scipy", "scikit-image>=0.11.0", "numpy>=1.15.0", "six", "imageio", "Pillow", "matplotlib","Shapely", "opencv-python"] の依存ライブラリ必要
+#sys.path.append( str(current_dir) + '/../Git/imgaug' )
+#import imgaug
+## albumentations はimgaug をimport しておかないとimport できない
+#sys.path.append( str(current_dir) + '/../Git/albumentations' )
+#import albumentations
 # https://github.com/albu/albumentations/blob/master/notebooks/example.ipynb
 
 
@@ -200,7 +200,7 @@ def predict_tta(model, x, TTA='flip'
                 , TTA_rotate_deg=0
                 , TTA_crop_num=0, TTA_crop_size=[224, 224]
                 , preprocess=1.0/255.0, resize_size=[331, 331]
-                ):
+                , is_branch=False):
     """
     albumentationsで水平反転,回転,切り抜き画像作成してTTA
     Usege:

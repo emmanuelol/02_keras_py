@@ -600,7 +600,6 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
                             , seresnet_num=154 # SEResNet の種類指定 18,34,50,101,154 のいずれかしかだめ
                             , sedensenet_num=169 # SEDenseNet の種類指定 121,161,169,201,264 のいずれかしかだめ
                             , seresnext_num=50 # SEResNext の種類指定 50,101 のいずれかしかだめ
-                            , add_se=False # FC層の前にSE block つけるか
                             , wrn_N=4, wrn_k=10 # WideResNetの引数
                             , oct_conv_alpha=0.25 # OctConv_WideResNet の低周波と高周波のチャンネル数の割り振り具合であるα
                             , efficientnet_num=3 # EfficientNet の種類指定 0,1,2,3,4,5,6,7 のいずれかしかだめ
