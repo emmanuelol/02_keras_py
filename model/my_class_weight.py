@@ -51,8 +51,3 @@ def cal_weight(class_name_list, IN_DIR):
         class_weights[count] = round(float(math.pow(amounts_of_class_dict[class_name]/mx, -1)),2) #重み＝（データ数/最大値）の逆数
         count += 1
     return class_weights
-
-if __name__ == '__main__':
-    print('my_class_weight.py: loaded as script file')
-else:
-    print('my_class_weight.py: loaded as module file')

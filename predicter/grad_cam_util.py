@@ -2,13 +2,16 @@
 """
 Grad-CAM に関連したutil関数
 """
-import os, sys
-import glob
+import os, sys, glob
 from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+
+import keras
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
-current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
+current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.append( str(current_dir) + '/../' )
 from predicter import grad_cam, base_predict
 from dataset import util
@@ -29,9 +32,6 @@ def gradcam_from_img_path(load_model, pred_path, output_dir, classes, img_rows, 
     Return:
         Grad-cam画像
     """
-    import matplotlib.pyplot as plt
-    from keras.preprocessing import image
-
     # grad_cam掛けるクラスid取得
     pred_id, pred_score = base_predict.pred_from_1img(load_model, pred_path, img_rows, img_cols, classes=classes, show_img=show_img)
     #print('pred_id:', str(pred_id))
@@ -39,7 +39,7 @@ def gradcam_from_img_path(load_model, pred_path, output_dir, classes, img_rows, 
     #print('pred_label', pred_label)
 
     # 入力画像ロード(image.load_img)してをarray型に変換(image.img_to_array)
-    x = image.img_to_array(image.load_img(pred_path, target_size=(img_rows, img_cols)))
+    x = keras.preprocessing.image.img_to_array(keras.preprocessing.image.load_img(pred_path, target_size=(img_rows, img_cols)))
     X = grad_cam.preprocess_x(x)
 
     # grad_cam
@@ -49,7 +49,7 @@ def gradcam_from_img_path(load_model, pred_path, output_dir, classes, img_rows, 
         jetcam = grad_cam.grad_cam_plus(load_model, X, x, layer_name, img_rows, img_cols, class_output)
     else:
         jetcam = grad_cam.grad_cam(load_model, X, x, layer_name, img_rows, img_cols, class_output)
-    grad_cam_img = image.array_to_img(jetcam)
+    grad_cam_img = keras.preprocessing.image.array_to_img(jetcam)
 
     # Grad-cam画像表示
     if show_img == True:
@@ -87,10 +87,6 @@ def gradcam_from_x(load_model, x, output_dir, img_rows, img_cols
     Return:
         Grad-cam画像
     """
-    import matplotlib.pyplot as plt
-    from keras.preprocessing import image
-    import numpy as np
-
     # 前処理
     X = x/255.0
     # 元画像表示
@@ -110,7 +106,7 @@ def gradcam_from_x(load_model, x, output_dir, img_rows, img_cols
         jetcam = grad_cam.grad_cam_plus(load_model, X, x, layer_name, img_rows, img_cols, class_output)
     else:
         jetcam = grad_cam.grad_cam(load_model, np.expand_dims(X, axis=0), x, layer_name, img_rows, img_cols, class_output)
-    grad_cam_img = image.array_to_img(jetcam)
+    grad_cam_img = keras.preprocessing.image.array_to_img(jetcam)
 
     # Grad-cam画像表示
     if show_img == True:
@@ -130,9 +126,3 @@ def gradcam_from_x(load_model, x, output_dir, img_rows, img_cols
     #grad_cam_img.save(out_jpg, 'JPEG', quality=100, optimize=True)
 
     return grad_cam_img
-
-
-if __name__ == "__main__":
-    print('grad_cam_util.py: loaded as script file')
-else:
-    print('grad_cam_util.py: loaded as module file')

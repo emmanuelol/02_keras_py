@@ -4,26 +4,26 @@
 http://adliblog.hatenablog.com/entry/2018/02/15/184020
 
 Usage:
-import conf_matrix
+    import conf_matrix
 
-# ファイルからモデルロード
-trained_model = define_model_classes.load_json_weight('/gpfsx01/home/tmp10014/jupyterhub/notebook/work_H3-031/submit_Multi_Images/FineTuning/storage/Results/InceptionV3/Nadam_FC3/classes_Augmentor_lower_lr/DataSets_060Degree_cut_test_all_degree_all_train/CV1')
+    # ファイルからモデルロード
+    trained_model = define_model_classes.load_json_weight('/gpfsx01/home/tmp10014/jupyterhub/notebook/work_H3-031/submit_Multi_Images/FineTuning/storage/Results/InceptionV3/Nadam_FC3/classes_Augmentor_lower_lr/DataSets_060Degree_cut_test_all_degree_all_train/CV1')
 
-# クラスごとに出力する確信度の推測結果ファイル格納先
-out_score_dir = os.path.join(out_dir, "predict_class_score_test")
+    # クラスごとに出力する確信度の推測結果ファイル格納先
+    out_score_dir = os.path.join(out_dir, "predict_class_score_test")
 
-#Jupyterでインライン表示するための宣言
-%matplotlib inline
+    #Jupyterでインライン表示するための宣言
+    %matplotlib inline
 
-# 入力画像のパスがディレクトリの場合、下位ディレクトリのファイルパスを再帰的に取得する
-img_file_list = []
-for file in util.find_all_files(test_dir):
-    if '.jpg' in file:
-        img_file_list.append(file)
+    # 入力画像のパスがディレクトリの場合、下位ディレクトリのファイルパスを再帰的に取得する
+    img_file_list = []
+    for file in util.find_all_files(test_dir):
+        if '.jpg' in file:
+            img_file_list.append(file)
 
-# 混同行列を作成する
-conf_matrix.make_confusion_matrix(trained_model, classes, img_file_list, out_score_dir, img_rows, img_cols)
-#<モデル>, <クラスリスト>, <画像ファイルパスリスト>, <ファイル出力するディレクトリ>, <入力層のサイズ（縦）>, <入力層のサイズ（横）>
+    # 混同行列を作成する
+    conf_matrix.make_confusion_matrix(trained_model, classes, img_file_list, out_score_dir, img_rows, img_cols)
+    #<モデル>, <クラスリスト>, <画像ファイルパスリスト>, <ファイル出力するディレクトリ>, <入力層のサイズ（縦）>, <入力層のサイズ（横）>
 """
 
 import numpy as np
@@ -37,7 +37,8 @@ def plot_confusion_matrix(cm, classes, output_file,
                           normalize=False,
                           figsize=(6, 4),
                           title='Confusion matrix',
-                          cmap=plt.cm.Blues):
+                          cmap=plt.cm.Blues,
+                          is_show=True):
     """
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
@@ -67,10 +68,11 @@ def plot_confusion_matrix(cm, classes, output_file,
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     plt.savefig(output_file, bbox_inches="tight")# label見切れ対策 bbox_inches="tight"
-    plt.show()
+    if is_show == True:
+        plt.show()
     plt.clf()# plotの設定クリアにする
 
-def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4), is_plot_confusion_matrix=True):
+def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4), is_plot_confusion_matrix=True, task_name=None, is_show=True):
     """
     混同行列を作成する
     Args:
@@ -80,6 +82,8 @@ def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4), is_p
         out_dir:出力先のディレクトリパス
         figsize: 混同行列のplotサイズ
         is_plot_confusion_matrix: 混同行列画像は作成はしないかのflag（クラス数多すぎると混同行列画僧の作成できないのでそれ避けるため）
+        task_name:出力するファイルにつけるtask名
+        is_show:混同行列の画像やスコアの値をnotebookに表示させるか.Trueなら表示
     Returns:
         なし（混同行列のファイルを出力する）
     """
@@ -88,26 +92,40 @@ def make_confusion_matrix(classes, y_true, y_pred, out_dir, figsize=(6, 4), is_p
 
     # 有効桁数を下2桁とする
     np.set_printoptions(precision=2)
+
     # accuracyの計算
     accuracy = metrics.accuracy_score(y_true, y_pred)
+
     # confusion matrixの作成
     cnf_matrix = metrics.confusion_matrix(y_true, y_pred, labels=classes)
-    np.savetxt(out_dir+"/confusion_matrix.txt", cnf_matrix, delimiter='\t')
     # report(各種スコア)の作成と保存
     report = metrics.classification_report(y_true, y_pred, labels=classes)
-    with open(out_dir+"/report.txt", mode='w') as f:
-        f.write(report)
-    print(report)
-    if is_plot_confusion_matrix == True:
-        # confusion matrixのプロット、保存、表示
-        # http://adliblog.hatenablog.com/entry/2018/02/15/184020 より
-        title="overall accuracy:"+str(accuracy)
-        # 混同行列
-        plot_confusion_matrix(cnf_matrix, classes=classes, output_file=out_dir+"/CM_without_normalize.png", title=title, figsize=figsize)
-        # 正規化した混同行列
-        #plot_confusion_matrix(cnf_matrix, classes=classes, output_file=out_dir+"/CM_normalized.png", normalize=True,title=title)
+    if is_show == True:
+        print(report)
 
-def binary_multi_confmx(classes, y_true_list, y_pred_list, out_dir, figsize=(6, 4)):
+    # confusion_matrix plot するか
+    if is_plot_confusion_matrix == True:
+        # confusion matrix, report, 混同行列ファイル出力
+        if task_name is None:
+            np.savetxt(out_dir+"/confusion_matrix.txt", cnf_matrix, delimiter='\t')
+            with open(out_dir+"/report.txt", mode='w') as f:
+                f.write(report)
+            # 混同行列
+            plot_confusion_matrix(cnf_matrix
+                                    , classes=classes
+                                    , output_file=out_dir+"/CM_without_normalize.png", title="overall accuracy:"+str(accuracy)
+                                    , figsize=figsize, is_show=is_show)
+        else:
+            np.savetxt(out_dir+"/confusion_matrix"+"_"+task_name+".txt", cnf_matrix, delimiter='\t')
+            with open(out_dir+"/report"+"_"+task_name+".txt", mode='w') as f:
+                f.write(report)
+            # 混同行列
+            plot_confusion_matrix(cnf_matrix
+                                    , classes=classes
+                                    , output_file=out_dir+"/CM_without_normalize"+"_"+task_name+".png", title=task_name+" overall accuracy:"+str(accuracy)
+                                    , figsize=figsize, is_show=is_show)
+
+def binary_multi_confmx(classes, y_true_list, y_pred_list, out_dir, figsize=(6, 4), pred_threshold=0.5, is_show=True):
     """
     タスクごとのpredictのスコア(y_true_list)と正解ラベル(y_pred_list)から混同行列をファイル出力
     →マルチラベルを分解して、make_confusion_matrix関数を呼び混同行列作成する
@@ -117,20 +135,31 @@ def binary_multi_confmx(classes, y_true_list, y_pred_list, out_dir, figsize=(6, 
         y_pred_list:予測スコアのnumpy.ndarrayのリスト [array([0.65,0.99,0.01,…]), array([0.1,0.33,0.95,…]),…] ( リストの長さはタスク数、各arrayはファイルごとのスコア )
         out_dir:出力先のディレクトリパス
         figsize: 混同行列のplotサイズ
+        pred_threshold: 予測スコアのposi/nega分ける閾値。バイナリ分類なので、デフォルトは0.5とする
+        is_show:混同行列の画像やスコアの値をnotebookに表示させるか.Trueなら表示
     """
-    # タスクのループカウント
-    count=0
-    for (y_pred, y_true) in zip(y_pred_list, y_true_list):
-        # ファイル出力先作成
-        conf_out_dir = os.path.join(out_dir, 'confusion_matrix', 'task'+str(count))
-        os.makedirs(conf_out_dir, exist_ok=True)
-        # Tox21はバイナリ分類なので、確信度が0.5より大きい推論を1、それ以外を0に置換する
-        y_pred = (y_pred > 0.5) * 1.0
-        # 混同行列作成
-        make_confusion_matrix(classes, y_true, y_pred, conf_out_dir, figsize=figsize)
-        count+=1
+    for id,(y_pred, y_true) in enumerate(zip(y_pred_list, y_true_list)):
 
-if __name__ == '__main__':
-    print('conf_matrix.py: loaded as script file')
-else:
-    print('conf_matrix.py: loaded as module file')
+        # ファイル出力先作成
+        conf_out_dir = os.path.join(out_dir, 'confusion_matrix')
+        os.makedirs(conf_out_dir, exist_ok=True)
+
+        if isinstance(y_pred, list) and isinstance(y_true, list):
+            # マルチタスクの場合y_pred,y_trueはnumpyのリスト
+            for task_id,(y_p, y_t) in enumerate(zip(y_pred, y_true)):
+                # 確信度が0.5より大きい推論を1、それ以外を0に置換する
+                y_p = (y_p > pred_threshold) * 1.0
+                # 混同行列作成
+                make_confusion_matrix(classes, y_t, y_p, conf_out_dir
+                                        , figsize=figsize
+                                        , task_name='task'+str(task_id)+'_'+str(id)
+                                        , is_show=is_show)
+        else:
+            # マルチクラス/ラベルの場合y_pred,y_trueはnumpy
+            # 確信度が0.5より大きい推論を1、それ以外を0に置換する
+            y_pred = (y_pred > pred_threshold) * 1.0
+            # 混同行列作成
+            make_confusion_matrix(classes, y_true, y_pred, conf_out_dir
+                                    , figsize=figsize
+                                    , task_name='task'+str(id)
+                                    , is_show=is_show)

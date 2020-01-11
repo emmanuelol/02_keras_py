@@ -4,17 +4,17 @@
 Tox21の画像のパスとラベル(y_train,y_valid,y_test)を取得する
 
 Usage:
-import os, sys
-current_dir = os.path.dirname(os.path.abspath("__file__"))
-path = os.path.join(current_dir, '../')
-sys.path.append(path)
-from dataset import prepare_data
+    import os, sys
+    current_dir = os.path.dirname(os.path.abspath("__file__"))
+    path = os.path.join(current_dir, '../')
+    sys.path.append(path)
+    from dataset import prepare_data
 
-csv_path = r'/home/tmp10014/jupyterhub/notebook/work_H3-038/Tox21/bioinf_data/tox21_gunzip/tox21_compoundData.csv'
-img_dir = r'/home/tmp10014/jupyterhub/notebook/work_H3-038/smi2img/work/smi2img_test/'
-img_suffix = r'_000.jpg'
-df = prepare_data.make_label_df(csv_path, img_dir, img_suffix=img_suffix)
-train_files, validation_files, test_files, y_train, y_valid, y_test = prepare_data.make_train_val_test(csv_path, img_dir, img_suffix=img_suffix)
+    csv_path = r'/home/tmp10014/jupyterhub/notebook/work_H3-038/Tox21/bioinf_data/tox21_gunzip/tox21_compoundData.csv'
+    img_dir = r'/home/tmp10014/jupyterhub/notebook/work_H3-038/smi2img/work/smi2img_test/'
+    img_suffix = r'_000.jpg'
+    df = prepare_data.make_label_df(csv_path, img_dir, img_suffix=img_suffix)
+    train_files, validation_files, test_files, y_train, y_valid, y_test = prepare_data.make_train_val_test(csv_path, img_dir, img_suffix=img_suffix)
 """
 import os
 from glob import glob
@@ -235,9 +235,3 @@ def make_train_val_test_angle(df):
     print('test_set_y.shape:', y_test.shape)
 
     return train_files, validation_files, test_files, y_train, y_valid, y_test
-
-
-if __name__ == '__main__':
-    print('prepare_data.py: loaded as script file')
-else:
-    print('prepare_data.py: loaded as module file')

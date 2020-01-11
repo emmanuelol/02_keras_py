@@ -10,14 +10,13 @@ from tqdm import tqdm
 from os import path
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from keras.models import load_model
-from keras.preprocessing import image
-import keras.backend as K
+
+import keras
 
 def load_img_for_model(filename, target_size=(224, 224)):
     """判定対象画像の読み込み"""
-    img = image.load_img(filename, target_size=target_size)
-    x_orig = image.img_to_array(img)  # ndarray: (224, 224, 3), float32
+    img = keras.preprocessing.image.load_img(filename, target_size=target_size)
+    x_orig = keras.preprocessing.image.img_to_array(img)  # ndarray: (224, 224, 3), float32
     x = np.expand_dims(x_orig, axis=0)  # ndarray: (1, 224, 224, 3), float32
     return x, x_orig
 
@@ -74,8 +73,8 @@ def img_gradient(model, class_idx, x_processed):
         visualize_mono_map(gradient, base_image=x_orig)
     """
     class_output = model.output[:, class_idx]  # Tensor / クラススコア
-    grad_tensor = K.gradients(class_output, model.input)[0]  # Tensor / クラススコアに対する入力の勾配
-    grad_func = K.function([model.input], [grad_tensor])  # Function / 勾配の値を算出するための関数
+    grad_tensor = keras.backend.gradients(class_output, model.input)[0]  # Tensor / クラススコアに対する入力の勾配
+    grad_func = keras.backend.function([model.input], [grad_tensor])  # Function / 勾配の値を算出するための関数
     gradient = grad_func([x_processed])[0][0]  # ndarray: (224, 224, 3), float32 / 算出された勾配の値
     return gradient
 
@@ -104,8 +103,8 @@ def smooth_grad(model, class_idx, x_processed):
     stdev = stdev_spread * (np.max(x_processed) - np.min(x_processed))  # 画像の最大値-最小値でランダムノイズの大きさをスケーリング
     total_gradient = np.zeros_like(x_processed)  # ndarray: (1, 224, 224, 3), float32 / 勾配の合計値を加算していく行列（0で初期化）
     class_output = model.output[:, class_idx]  # Tensor / クラススコア
-    grad_tensor = K.gradients(class_output, model.input)[0]  # Tensor / クラススコアに対する入力の勾配
-    grad_func = K.function([model.input], [grad_tensor])  # Function / 勾配の値を算出するための関数
+    grad_tensor = keras.backend.gradients(class_output, model.input)[0]  # Tensor / クラススコアに対する入力の勾配
+    grad_func = keras.backend.function([model.input], [grad_tensor])  # Function / 勾配の値を算出するための関数
     pbar = tqdm(range(n_samples))
     for i in range(n_samples):
         #print("SmoothGrad: {}/{}".format(i+1, n_samples))
@@ -152,9 +151,9 @@ def guided_packpropagation(model, class_idx, x_processed, model_save_dir):
     model.save(model_temp_path)
     with tf.Graph().as_default():
         with tf.Session().as_default():
-            K.set_learning_phase(0)
-            load_model(model_temp_path)
-            session = K.get_session()
+            keras.backend.set_learning_phase(0)
+            keras.models.load_model(model_temp_path)
+            session = keras.backend.get_session()
             tf.train.export_meta_graph()
             saver = tf.train.Saver()
             saver.save(session, train_save_path)
@@ -196,8 +195,8 @@ def gradcam(model, class_idx, x_processed, layer_name="block5_conv3"):
     """
     class_output = model.output[:, class_idx]  # Tensor / クラススコア
     convout_tensor = model.get_layer(layer_name).output  # convolutionの出力/Tensor
-    grad_tensor = K.gradients(class_output, convout_tensor)[0]  # 勾配/Tensor
-    grad_func = K.function([model.input], [convout_tensor, grad_tensor])  # 勾配を算出する関数
+    grad_tensor = keras.backend.gradients(class_output, convout_tensor)[0]  # 勾配/Tensor
+    grad_func = keras.backend.function([model.input], [convout_tensor, grad_tensor])  # 勾配を算出する関数
     convout_val, grads_val = grad_func([x_processed])
     convout_val, grads_val = convout_val[0], grads_val[0]  # array: (14, 14, 512), float32 (両方とも）
     weights = np.mean(grads_val, axis=(0,1))  # チャネルの重み/array: (512,), float32
@@ -205,8 +204,3 @@ def gradcam(model, class_idx, x_processed, layer_name="block5_conv3"):
     grad_cam = np.maximum(grad_cam, 0)
     grad_cam = cv2.resize(grad_cam, (224, 224), cv2.INTER_LINEAR)  # 上記をリサイズ
     return grad_cam
-
-if __name__ == "__main__":
-    print('visualize_keras_predict.py: loaded as script file')
-else:
-    print('visualize_keras_predict.py: loaded as module file')

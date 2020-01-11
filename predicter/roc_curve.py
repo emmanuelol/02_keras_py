@@ -3,21 +3,21 @@
 推測結果のファイルからROC_curveをplotする
 
 Usage:
-import roc_curve
+    import roc_curve
 
-model = keras.models.load_model(os.path.join(out_dir, 'best_model.h5'), compile=False)
-y_pred = model.predict(x_test)
+    model = keras.models.load_model(os.path.join(out_dir, 'best_model.h5'), compile=False)
+    y_pred = model.predict(x_test)
 
-y_test_list = []
-for i in range(y_test.shape[1]):
-    y_test_list.append(y_test[:,i])
+    y_test_list = []
+    for i in range(y_test.shape[1]):
+        y_test_list.append(y_test[:,i])
 
-y_pred_list = []
-for i in range(y_pred.shape[1]):
-    y_pred_list.append(y_pred[:,i])
+    y_pred_list = []
+    for i in range(y_pred.shape[1]):
+        y_pred_list.append(y_pred[:,i])
 
-out_png = os.path.join(out_dir, 'ROC_curve.png')
-roc_curve.plot_roc(out_png, y_test_list, y_pred_list)
+    out_png = os.path.join(out_dir, 'ROC_curve.png')
+    roc_curve.plot_roc(out_png, y_test_list, y_pred_list)
 """
 import sklearn
 from sklearn import metrics # sklearn.metrics で実行するとエラーになることがあったのでfromで呼ぶ
@@ -105,18 +105,13 @@ def plot_roc(out_png, y_true_list, y_pred_list,
         tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
         plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2, label=r'$\pm$ 1 std. dev.')
 
-    plt.plot([0, 1], [0, 1], label='Luck', color='r', linestyle='--') # 対角線に赤の点線引く（ランダムなパターンで AUC = 0.5 のライン）
+    plt.plot([0, 1], [0, 1], label='Random', color='r', linestyle='--') # 対角線に赤の点線引く（ランダムなパターンで AUC = 0.5 のライン）
     plt.title('ROC curve')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     #plt.legend(loc='lower right') # 凡例を右下に書く
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=12) # 凡例を枠外に書く
     #plt.grid(True) # グリッド線書く
-    plt.savefig(out_png) # plt.savefig はplt.show() の前に書かないと白紙で保存される
+    plt.savefig(out_png, bbox_inches="tight") # plt.savefig はplt.show() の前に書かないと白紙で保存される
     plt.show()
     plt.clf() # plotの設定クリアにする
-
-if __name__ == '__main__':
-    print('roc_curve.py: loaded as script file')
-else:
-    print('roc_curve.py: loaded as module file')

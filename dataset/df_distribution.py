@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 データフレームの各列の分布可視化関数
 """
+import os, sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os, sys
 
 def mean_hist_plot(df_describe_T, title='', xlabel='column', ylabel='mean', outputdir='describe'):
     """データフレームのdescribe().Tから平均値のヒストグラムplot"""

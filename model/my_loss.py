@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """自作loss関数"""
-
-from keras import backend as K
+import keras
 import tensorflow as tf
 
 # focal loss: 通常の cross entropy loss (CE) を動的に scaling（高い推論確率で正しく推論できているサンプルの損失をCross Entropy Lossより小さく）させる損失関数
@@ -22,11 +21,11 @@ class FocalLoss(object):
     論文ではCIFAR10のクラス不均衡が100倍、200倍の時focal loss有効だった
 
     Usage:
-        f_loss = multi_loss.FocalLoss(loss_function=multi_loss.build_masked_loss(K.binary_crossentropy)).compute_loss
+        f_loss = multi_loss.FocalLoss(loss_function=multi_loss.build_masked_loss(keras.backend.binary_crossentropy)).compute_loss
         model.compile(loss=f_loss, optimizer='nadam', metrics=['accuracy', masked_accuracy])
         model.fit_generator(…)
     """
-    def __init__(self, gamma=2, alpha=0.25, loss_function=K.binary_crossentropy):
+    def __init__(self, gamma=2, alpha=0.25, loss_function=keras.backend.binary_crossentropy):
         self._gamma = gamma
         self._alpha = alpha
         self._loss_function = loss_function
@@ -42,9 +41,4 @@ class FocalLoss(object):
             alpha_weight_factor = (y_true * self._alpha + (1 - y_true) * (1 - self._alpha))
         focal_cross_entropy_loss = (modulating_factor * alpha_weight_factor * cross_entropy_loss)
 
-        return K.mean(focal_cross_entropy_loss, axis=-1)
-
-if __name__ == '__main__':
-    print('my_loss.py: loaded as script file')
-else:
-    print('my_loss.py: loaded as module file')
+        return keras.backend.mean(focal_cross_entropy_loss, axis=-1)

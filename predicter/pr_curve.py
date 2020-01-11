@@ -4,21 +4,21 @@
 ROC曲線は、不均衡データに対する分類器の性能を過大評価する可能性がありますが、PR曲線は、不均衡データの再現率と同じレベルで精度の低下を示す
 
 Usage:
-import pr_curve
+    import pr_curve
 
-model = keras.models.load_model(os.path.join(out_dir, 'best_model.h5'), compile=False)
-y_pred = model.predict(x_test)
+    model = keras.models.load_model(os.path.join(out_dir, 'best_model.h5'), compile=False)
+    y_pred = model.predict(x_test)
 
-y_test_list = []
-for i in range(y_test.shape[1]):
-    y_test_list.append(y_test[:,i])
+    y_test_list = []
+    for i in range(y_test.shape[1]):
+        y_test_list.append(y_test[:,i])
 
-y_pred_list = []
-for i in range(y_pred.shape[1]):
-    y_pred_list.append(y_pred[:,i])
+    y_pred_list = []
+    for i in range(y_pred.shape[1]):
+        y_pred_list.append(y_pred[:,i])
 
-out_png = os.path.join(out_dir, 'ROC_curve.png')
-pr_curve.plot_pr(y_test_list, y_pred_list, out_png)
+    out_png = os.path.join(out_dir, 'ROC_curve.png')
+    pr_curve.plot_pr(y_test_list, y_pred_list, out_png)
 """
 import numpy as np
 import pandas as pd
@@ -315,7 +315,7 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
                                     , 'recall': recall
                                     , 'f1': f1_list
                                     })
-
+    df_plot_data = df_plot_data.fillna(-1.0) # 欠損値(nan)は-1.0にしておく
     # plot
     plt.plot(thresholds, precision, color=sns.color_palette()[0])
     plt.plot(thresholds, recall, color=sns.color_palette()[1])
@@ -330,7 +330,9 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
 
     leg.get_frame().set_edgecolor('k')
     plt.xlabel('threshold')
+    plt.xlim([-0.03, 1.03])
     plt.ylabel('%')
+    plt.ylim([-0.03, 1.03])
     plt.title(title)
     plt.grid()
     if out_png is not None:
@@ -345,9 +347,3 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
     recall_max_threshold = df_plot_data.sort_values(by=['recall'], ascending=False)['thresholds'].values[0]
 
     return df_plot_data, f1_max_threshold, precision_max_threshold, recall_max_threshold
-
-
-if __name__ == '__main__':
-    print('pr_curve.py: loaded as script file')
-else:
-    print('pr_curve.py: loaded as module file')

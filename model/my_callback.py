@@ -3,7 +3,6 @@
 自作コールバック
 """
 import os
-import keras
 import math
 import time
 import numpy as np
@@ -12,6 +11,8 @@ import pathlib
 import warnings
 from sklearn.metrics import roc_auc_score#, average_precision_score
 from collections import OrderedDict
+
+import keras
 
 class MyCheckPoint(keras.callbacks.Callback):
     """
@@ -31,8 +32,8 @@ class MyCheckPoint(keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         # best_val_lossのモデルの重み保存場合
-        if self.is_best_val_loss == True and self.val_loss > log['val_loss']:
-            self.val_loss = log['val_loss']
+        if self.is_best_val_loss == True and self.val_loss > logs['val_loss']:
+            self.val_loss = logs['val_loss']
             self.model_to_save.save(os.path.join(self.weight_dir, self.filename+'best_val_loss.h5' % epoch))
 
         # 指定したepoch 倍のepoch 時だけ保存する（コサインアニーリング+アンサンブルやるSnapshot Ensemble用）
@@ -90,8 +91,6 @@ def cosine_annealing(factor=0.01, epochs=None):
         factor: lr下げる倍率。lr*factor が最小のlrに設定される
         epochs: コサインカーブのほぼ半周期になるエポック数。デフォルトのNoneだと半周期だけ（lr下がるだけ）
     """
-    import keras
-    import keras.backend as K
     assert factor < 1
     class _CosineAnnealing(keras.callbacks.Callback):
         def __init__(self, factor, epochs):
@@ -101,13 +100,13 @@ def cosine_annealing(factor=0.01, epochs=None):
             self.epochs = epochs
             super().__init__()
         def on_train_begin(self, logs=None):
-            self.start_lr = float(K.get_value(self.model.optimizer.lr))
+            self.start_lr = float(keras.backend.get_value(self.model.optimizer.lr))
         def on_epoch_begin(self, epoch, logs=None):
             lr_max = self.start_lr
             lr_min = self.start_lr * self.factor
             r = (epoch + 1) / (self.epochs or self.params['epochs'])
             lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + np.cos(np.pi * r))
-            K.set_value(self.model.optimizer.lr, float(lr))
+            keras.backend.set_value(self.model.optimizer.lr, float(lr))
     return _CosineAnnealing(factor=factor, epochs=epochs)
 
 # 下山さんのコードより
@@ -118,7 +117,6 @@ def learning_curve_plot(filename, metric='loss'):
     - filename: 保存先ファイル名。「{metric}」はmetricの値に置換される。str or pathlib.Path
     - metric: 対象とするmetric名。lossとかaccとか。
     """
-    import keras
     import matplotlib.pyplot as plt
 
     class _LearningCurvePlotter(keras.callbacks.Callback):
@@ -198,9 +196,6 @@ def tsv_logger(filename, append=False):
         cd = []
         cb.append(my_callback.tsv_logger(os.path.join(out_dir, 'tsv_logger.tsv')))
     """
-    import keras
-    import keras.backend as K
-
     import csv
     import pathlib
     #enabled = hvd.is_master()
@@ -226,7 +221,7 @@ def tsv_logger(filename, append=False):
             self.epoch_start_time = time.time()
         def on_epoch_end(self, epoch, logs=None):
             logs = logs or {}
-            logs['lr'] = K.get_value(self.model.optimizer.lr)
+            logs['lr'] = keras.backend.get_value(self.model.optimizer.lr)
             elapsed_time = time.time() - self.epoch_start_time
             def _format_metric(logs, k):
                 value = logs.get(k)
@@ -493,9 +488,3 @@ class SnapshotCallbackBuilder:
         cos_inner /= self.T // self.M
         cos_out = np.cos(cos_inner) + 1
         return float(self.alpha_zero / 2 * cos_out) # init_lr*0.25ぐらいまでコサインカーブで下がる
-
-
-if __name__ == '__main__':
-    print('my_callback.py: loaded as script file')
-else:
-    print('my_callback.py: loaded as module file')

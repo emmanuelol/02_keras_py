@@ -23,8 +23,3 @@ def get_auc_metric(optimizer):
     def roc_auc(y_true, y_pred):
         return tf.py_func(roc_auc_score, (y_true, y_pred), tf.double)
     return roc_auc
-
-if __name__ == '__main__':
-    print('my_metric.py: loaded as script file')
-else:
-    print('my_metric.py: loaded as module file')

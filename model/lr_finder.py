@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from keras.callbacks import LambdaCallback
-from keras import backend as K
 import matplotlib.pyplot as plt
 import numpy as np
 import tempfile
+
+import keras
 
 class LearningRateFinder:
     """
@@ -80,7 +80,7 @@ class LearningRateFinder:
 
     def on_batch_end(self, batch, logs):
         # 現在の学習率を取得し、試行した学習率のリストにログを追加します
-        lr = K.get_value(self.model.optimizer.lr)
+        lr = keras.backend.get_value(self.model.optimizer.lr)
         self.lrs.append(lr)
 
         # このバッチの最後に損失を取得し、
@@ -107,7 +107,7 @@ class LearningRateFinder:
 
         # 学習率を上げる
         lr *= self.lrMult
-        K.set_value(self.model.optimizer.lr, lr)
+        keras.backend.set_value(self.model.optimizer.lr, lr)
 
     def find(self, trainData, startLR, endLR
              , epochs=None, stepsPerEpoch=None, batchSize=32, sampleSize=2048, verbose=1):
@@ -159,11 +159,11 @@ class LearningRateFinder:
         self.model.save_weights(self.weightsFile)
 
         # （元の）学習率を取得し（後でリセットできるようにします）、次に*開始*学習率を設定します
-        origLR = K.get_value(self.model.optimizer.lr)
-        K.set_value(self.model.optimizer.lr, startLR)
+        origLR = keras.backend.get_value(self.model.optimizer.lr)
+        keras.backend.set_value(self.model.optimizer.lr, startLR)
 
         # 各バッチの終わりに呼び出されるコールバックを作成し、トレーニングが進行するにつれて学習率を上げることができるようにします
-        callback = LambdaCallback(on_batch_end=lambda batch, logs:
+        callback = keras.callbacks.LambdaCallback(on_batch_end=lambda batch, logs:
             self.on_batch_end(batch, logs))
 
         # データ反復子を使用しているかどうかを確認します
@@ -187,7 +187,7 @@ class LearningRateFinder:
 
         # 元のモデルの重みと学習率を復元する
         self.model.load_weights(self.weightsFile)
-        K.set_value(self.model.optimizer.lr, origLR)
+        keras.backend.set_value(self.model.optimizer.lr, origLR)
 
     def plot_loss(self, skipBegin=10, skipEnd=1, title=""):
         # 学習率と損失値を取得してプロットする。lrs, lossesも返す

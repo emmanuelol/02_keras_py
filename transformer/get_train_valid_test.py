@@ -1,36 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-train/validation/testデータ管理クラス
-Tox21の画像のパス(train_files,validation_files,test_files)とラベル(y_train,y_valid,y_test)からtrain/validation/test の ImageDataGenerator まで作成する
-ImageDataGeneratorのオプションはIDG_optionsで指定する
-
-ラベルに-1が混じってるからMixup使うと、ラベルも混ぜるのでlossがマイナスになる
-今回はMixupつかえない
+train/validation/testデータ用意する
 
 Usage:
-import os, sys
-current_dir = os.path.dirname(os.path.abspath("__file__"))
-path = os.path.join(current_dir, '../')
-sys.path.append(path)
-from transformer import get_train_valid_test
+    import os, sys
+    current_dir = os.path.dirname(os.path.abspath("__file__"))
+    path = os.path.join(current_dir, '../')
+    sys.path.append(path)
+    from transformer import get_train_valid_test
 
-shape = [299, 299, 3]
-batch_size = 16
-data_manager_cls = get_train_valid_test.LabeledDataset(shape, batch_size)
+    shape = [299, 299, 3]
+    batch_size = 16
+    # データクラス定義
+    data_manager_cls = get_train_valid_test.LabeledDataset(shape, batch_size)
 """
-import sys
+import os, sys, copy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import keras
-from keras.preprocessing import image
-#from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
 import sklearn
-import copy
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
-current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
+current_dir = pathlib.Path(__file__).resolve().parent
+sys.path.append( str(current_dir) + '/../' )
+# 自作モジュールimport
+from transformer import my_generator, augmentor_util
 
 # githubのmixupをimport
 # /home/tmp10014/jupyterhub/notebook/other/lib_DL/mixup-generator
@@ -38,41 +33,76 @@ sys.path.append( str(current_dir) + '/../Git/mixup-generator' )
 from mixup_generator import MixupGenerator
 from random_eraser import get_random_eraser
 
+import keras
+#from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
 sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
 from keras_preprocessing.image import ImageDataGenerator
 
-# 自作モジュールimport
-from . import my_generator
 
-def generator_12output(generator):
+def binary_generator_multi_output_wrapper(generator):
     """
-    12の出力（task）をだすgenerator
-    # https://github.com/keras-team/keras/issues/5036
+    binaryラベルのgeneratorをマルチタスクgeneratorに変換するラッパー
+    マルチラベルをマルチタスクに変換するときに使う
+    https://medium.com/@vijayabhaskar96/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
     Args:
         generator:keras.preprocessing.image.ImageDataGenerator
     Returns:
-        入力画素(X), 12taskのラベルのリスト([y[:,0], y[:,1], y[:,2]…]) のgenerator
-    """
-    while True:
-        X_y = generator.__next__() # python3 系ではnext() ではなく__next__()
-        X = X_y[0]
-        y = X_y[1]
-        # 入力画素(X1[0]), 12taskのラベルのリスト([X1[0], X2[1], X3[1]]…)
-        y_conv = []
-        for i in range(y.shape[1]):
-            y_conv.append(y[:,i])
-        yield X, y_conv
-        #yield X, [y[:,0], y[:,1], y[:,2], y[:,3], y[:,4], y[:,5], y[:,6], y[:,7], y[:,8], y[:,9], y[:,10], y[:,11]]
-
-def multi_task_generator_wrapper(generator):
-    """
-    マルチタスクのgenerator
-    generator_12output()と同じことしてる
-    https://medium.com/@vijayabhaskar96/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
+        ラベルのshapeが(クラス数, バッチサイズ)になったgenerator
     """
     for batch_x,batch_y in generator:
         #print(batch_y.shape)
-        yield (batch_x,[batch_y[:,i] for i in range(batch_y.shape[1])])
+        # ラベルのshapeを[クラス数,画像の数]に変換する
+        if batch_y.ndim == 1:
+            yield (batch_x,batch_y.reshape(1,batch_y.shape[0])) # batch_y[0]からbatch_y[:,0]が画像1枚のラベルになる
+        else:
+            yield (batch_x,[batch_y[:,i] for i in range(batch_y.shape[1])]) # batch_y[0]からbatch_y[:,0]が画像1枚のラベルになる
+
+def generator_multi_output_wrapper(generator, Xs, task_labels:list, batch_size:int, is_shuffle=True, seed=7):
+    """
+    flow前のgeneratorをマルチタスクgeneratorに変換するラッパー
+    batch単位ではなく全画像データをメモリにロードする
+    Args:
+        generator:keras.preprocessing.image.ImageDataGenerator
+        Xs:前処理済み画像データ
+        task_labels:各タスクのone-hotラベルを詰めたリスト
+        batch_size:バッチサイズ
+        is_shuffle:画像シャッフルするか。trainの時はTrueにしないとだめ
+        seed:flowの乱数シード
+    Returns:
+        ラベルがlist[<task数>, ndarray(バッチサイズ, <出力層のnode>]になったgenerator
+    """
+    # すべてのgenerator.flowで同じseedにしないと、各genで違うXが生成される
+    # https://stackoverflow.com/questions/38972380/keras-how-to-use-fit-generator-with-multiple-outputs-of-different-type
+    gens = [generator.flow(x=Xs, y=labels, batch_size=batch_size, shuffle=is_shuffle, seed=seed) \
+            for labels in task_labels]
+    while True:
+        _X = None
+        ys = []
+        for gen in gens:
+            X_y = gen.__next__() # python3 系ではnext() ではなく__next__()
+            ys.append(X_y[1])
+            ##### 各genのXが同じかのチェック #####
+            #if _X is None:
+            #    _X = X_y[0]
+            #else:
+            #    if (_X == X_y[0]).all():
+            #        print('### X match ###')
+            #    else:
+            #        print('### X not match ###')
+            ######################################
+        yield X_y[0], ys
+
+def generator_decode_wrapper(generator):
+    """
+    generatorのone-hotラベルをidにデコードするラッパー
+    one-hotラベルをid番号で扱いたいときに使う(Augmentorのkeras_generatorはラベルを必ずone-hotに変換するので)
+    Args:
+        generator:keras.preprocessing.image.ImageDataGenerator
+    Returns:
+        one-hotラベルをidにデコードしたgenerator([0,1,0]→1になる)
+    """
+    for batch_x,batch_y in generator:
+        yield (batch_x,np.argmax(batch_y, axis=1).astype(np.float32))
 
 ### Dataset distribution utility
 # https://github.com/daisukelab/small_book_image_dataset/blob/master/IF201812%20-Train%20With%20Augmentation.ipynb
@@ -243,23 +273,23 @@ class LabeledDataset:
         img = keras.preprocessing.image.load_img(filename, target_size=shape[:2])
         return keras.preprocessing.image.img_to_array(img) * rescale_factor
 
-    def load_train_as_image(self, train_files, y_train):
+    def load_train_as_image(self, train_files, y_train, rescale_factor=1/255.):
         """train画像をnumpy.arrayに変換"""
-        self.X_train = np.array([LabeledDataset.load_image(filename, self.shape, rescale_factor=1/255.)
+        self.X_train = np.array([LabeledDataset.load_image(filename, self.shape, rescale_factor=rescale_factor)
                                     for filename in train_files])
         self.y_train = y_train
         #return self.X_train, self.y_train
 
-    def load_validation_as_image(self, validation_files, y_valid):
+    def load_validation_as_image(self, validation_files, y_valid, rescale_factor=1/255.):
         """validation画像をnumpy.arrayに変換"""
-        self.X_valid = np.array([LabeledDataset.load_image(filename, self.shape, rescale_factor=1/255.)
+        self.X_valid = np.array([LabeledDataset.load_image(filename, self.shape, rescale_factor=rescale_factor)
                                 for filename in validation_files])
         self.y_valid = y_valid
         #return self.X_valid, self.y_valid
 
-    def load_test_as_image(self, test_files, y_test):
+    def load_test_as_image(self, test_files, y_test, rescale_factor=1/255.):
         """test画像をnumpy.arrayに変換"""
-        self.X_test = np.array([LabeledDataset.load_image(filename, self.shape, rescale_factor=1/255.)
+        self.X_test = np.array([LabeledDataset.load_image(filename, self.shape, rescale_factor=rescale_factor)
                                 for filename in test_files])
         self.y_test = y_test
         #return self.X_test, self.y_test
@@ -343,8 +373,6 @@ class LabeledDataset:
                 batch_size=self.valid_batch_size,# batch_size はセット内の画像の総数を正確に割るような数に設定しないと同じ画像を2回使うため、validation やtest setのbatch size は割り切れる数にすること！！！
                 shuffle=False# validation/test set は基本順番入れ替えない
             )
-        else:
-            self.valid_gen = None
 
         if test_data_dir is not None:
             # テスト画像_前処理実行
@@ -358,8 +386,6 @@ class LabeledDataset:
                 batch_size=self.test_batch_size,# batch_size はセット内の画像の総数を正確に割るような数に設定しないと同じ画像を2回使うため、validation やtest setのbatch size は割り切れる数にすること！！！
                 shuffle=False# validation/test set は基本順番入れ替えない
             )
-        else:
-            self.test_gen = None
 
         return self.train_gen, self.valid_gen, self.test_gen
 
@@ -473,6 +499,20 @@ class LabeledDataset:
             self.valid_gen = None
         return self.train_gen, self.valid_gen
 
+    def create_augmentor_util_from_directory(self, data_dir, batch_size
+                                            , output_dir='../Augmentor_output'
+                                            , scaled=True
+                                            , augmentor_options={}):
+        """
+        AugmentorからGenerator作成
+        """
+        gen = augmentor_util.make_datagenerator_from_dir(
+                data_dir, batch_size
+                , output_dir=output_dir
+                , scaled=scaled
+                , IDG_options=augmentor_options)
+        return gen
+
     def train_steps_per_epoch(self):
         """fit_generatorで指定するtrainのsteps_per_epoch"""
         return len(self.X_train) // self.train_batch_size
@@ -484,8 +524,8 @@ class LabeledDataset:
 
 def load_one_img(img_file_path, img_rows, img_cols, is_grayscale=False):
     """画像を1枚読み込んで、4次元テンソル(1, img_rows, img_cols, 3)へ変換+前処理"""
-    img = image.load_img(img_file_path, target_size=(img_rows, img_cols))# 画像ロード
-    x = image.img_to_array(img)# ロードした画像をarray型に変換
+    img = keras.preprocessing.image.load_img(img_file_path, target_size=(img_rows, img_cols))# 画像ロード
+    x = keras.preprocessing.image.img_to_array(img)# ロードした画像をarray型に変換
     if is_grayscale == True:
         x = my_generator.preprocessing_grayscale(x)
     x = np.expand_dims(x, axis=0)# 4次元テンソルへ変換
@@ -619,9 +659,3 @@ def label2onehot(labels:np.ndarray):
     enc = preprocessing.LabelEncoder().fit_transform(labels).reshape(-1,1)
     onehot = OneHotEncoder().fit_transform(enc).toarray()
     return enc, onehot
-
-
-if __name__ == '__main__':
-    print('get_train_valid_test.py: loaded as script file')
-else:
-    print('get_train_valid_test.py: loaded as module file')

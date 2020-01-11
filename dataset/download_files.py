@@ -4,8 +4,8 @@ URLを指定してTqdm Progress Barで大きなファイルをダウンロード
 https://medium.com/better-programming/python-progress-bars-with-tqdm-by-example-ce98dbbc9697
 
 Usage:
-$ python download_files.py -u https://nodejs.org/dist/v12.13.1/node-v12.13.1.pkg https://aka.ms/windev_VM_virtualbox # カレントディレクトリに2ファイルDL
-$ python download_files.py -o tmp -u https://nodejs.org/dist/v12.13.1/node-v12.13.1.pkg # tmpディレクトリにDL
+    $ python download_files.py -u https://nodejs.org/dist/v12.13.1/node-v12.13.1.pkg https://aka.ms/windev_VM_virtualbox # カレントディレクトリに2ファイルDL
+    $ python download_files.py -o tmp -u https://nodejs.org/dist/v12.13.1/node-v12.13.1.pkg # tmpディレクトリにDL
 """
 #  Copyright 2019 tiptapcode Authors. All Rights Reserved.
 #
@@ -20,7 +20,6 @@ $ python download_files.py -o tmp -u https://nodejs.org/dist/v12.13.1/node-v12.1
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
 
 import os
 import sys

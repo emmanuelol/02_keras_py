@@ -8,27 +8,18 @@ Ussage:
     $ CUDA_VISIBLE_DEVICES=2 python image2gradcam_H3-045.py --image_path input/cat_dog.png --model_path model.h5 --layer_name mix10 --class_idx 0 --out_jpg grad.jpg # gradcamのクラスidや層指定、出力画像パスも措定
     $ CUDA_VISIBLE_DEVICES=3 python image2gradcam_H3-045.py --image_path input/cat_dog.png --model_path model.h5 --is_gradcam_plus # gradcam++で実行
 """
-
-
 import os, sys, time, shutil, glob, pathlib, argparse
 from PIL import Image
 import numpy as np
 
-#import urllib.request
-## proxy の設定
-#proxy_support = urllib.request.ProxyHandler({'http' : 'http://apiproxy:8080', 'https': 'https://apiproxy:8080'})
-#opener = urllib.request.build_opener(proxy_support)
-#urllib.request.install_opener(opener)
+#os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
+from tensorflow import keras
+keras.backend.set_learning_phase(0)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
-import keras
-import keras.backend as K
-K.set_learning_phase(0)
-
-# H3-045のコードimport
-#sys.path.append('/gpfsx01/home/aaa00162/jupyterhub/notebook/work_H3-031/H3-045/02.DL/work/code_v2/')
-#from predicter import grad_cam
-import grad_cam
+import pathlib
+current_dir = pathlib.Path(__file__).resolve().parent
+sys.path.append( str(current_dir) + '/../' )
+from predicter import grad_cam
 
 def image2numpy_keras(image_path:str, shape):
     """
@@ -95,13 +86,17 @@ def image2gradcam(model, image_path:str, X=None, layer_name=None, class_idx=None
 
 def main(args):
     if args.model_path is None:
+        #import urllib.request
+        ## proxy の設定
+        #proxy_support = urllib.request.ProxyHandler({'http' : 'http://apiproxy:8080', 'https': 'https://apiproxy:8080'})
+        #opener = urllib.request.build_opener(proxy_support)
+        #urllib.request.install_opener(opener)
         # テスト用にモデルファイルなしなら imagenet_vgg16 で gradcam 実行できるようにしておく
-        from keras.applications.vgg16 import VGG16, decode_predictions, preprocess_input
-        model = VGG16(weights='imagenet') # imagenet_vgg16モデルロード
+        model = keras.applications.vgg16.VGG16(weights='imagenet') # imagenet_vgg16モデルロード
         x = image2numpy_keras(args.image_path, [224,224,3]) # 画像ファイルをリサイズしてnp.arrayにする
         X = np.expand_dims(x, axis=0)
         X = X.astype('float32')
-        X = preprocess_input(X) # imagenet_vgg16の画像前処理
+        X = keras.applications.vgg16.preprocess_input(X) # imagenet_vgg16の画像前処理
         grad_cam_img = image2gradcam(model, args.image_path, X=X, layer_name='block5_conv3', is_gradcam_plus=args.is_gradcam_plus)
     else:
         model = keras.models.load_model(args.model_path, compile=False) # モデルロード

@@ -2,11 +2,10 @@
 """
 util関数群
 """
-import os, glob
+import os, glob, pathlib
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
 import cv2
 
 def find_all_files(directory):
@@ -60,7 +59,7 @@ def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
     img = Image.open(img_path)
     crop_img = img.crop((int(xmin),int(ymin),int(xmax),int(ymax)))
     if out_dir is not None:
-        save_name = str(Path(img_path).stem)+'_'+str(ymin)+'_'+str(ymax)+'_'+str(xmin)+'_'+str(xmax)+".jpg"
+        save_name = str(pathlib.Path(img_path).stem)+'_'+str(ymin)+'_'+str(ymax)+'_'+str(xmin)+'_'+str(xmax)+".jpg"
         crop_img.save(os.path.join(out_dir, save_name))
     return crop_img
 
@@ -128,11 +127,11 @@ def get_jpg_png_path_in_dir(dir):
     pathlibを使って指定ディレクトリを再帰的になめ、jpg,pngのファイルパスをリストで返す
     """
     jpg_files = []
-    for p in list(Path(dir).glob("**/*jpg")):
+    for p in list(pathlib.Path(dir).glob("**/*jpg")):
         # Pathオブジェクトを通常の文字列に変換
         jpg_files.append(p.as_posix())
     png_files = []
-    for p in list(Path(dir).glob("**/*png")):
+    for p in list(pathlib.Path(dir).glob("**/*png")):
         # Pathオブジェクトを通常の文字列に変換
         png_files.append(p.as_posix())
     files = []
@@ -282,8 +281,3 @@ def resize_ndarray(x, input_shape=(380,380,3)):
     # PIL 形式から ndarray に変換する
     x = tensorflow.keras.preprocessing.image.img_to_array(img)
     return x
-
-if __name__ == '__main__':
-    print('util.py: loaded as script file')
-else:
-    print('util.py: loaded as module file')

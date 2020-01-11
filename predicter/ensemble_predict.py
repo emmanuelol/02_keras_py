@@ -97,8 +97,3 @@ def ensembling_hard(models, X):
     for i, model in enumerate(models):
         pred_labels[:, i] = np.argmax(model.predict(X), axis=-1)
     return np.ravel(mode(pred_labels, axis=1)[0])# np.ravel:1次元配列に変換
-
-if __name__ == '__main__':
-    print('ensemble_predict.py: loaded as script file')
-else:
-    print('ensemble_predict.py: loaded as module file')

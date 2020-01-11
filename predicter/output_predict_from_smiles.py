@@ -1,6 +1,4 @@
-#!/home/bioinfo/.conda/envs/tfgpu_py36/bin/python
 # -*- coding: UTF-8 -*-
-
 import os, sys, subprocess
 import pandas as pd
 import numpy as np

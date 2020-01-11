@@ -1,9 +1,13 @@
-# EfficientNet-Keras
+# EfficientNet Keras (and TensorFlow Keras)
 
-This repository contains a Keras reimplementation of **EfficientNet**, a lightweight convolutional neural network architecture achieving the [state-of-the-art accuracy with an order of magnitude fewer parameters and FLOPS](https://arxiv.org/abs/1905.11946), on both ImageNet and
+This repository contains a Keras (and TensorFlow Keras) reimplementation of **EfficientNet**, a lightweight convolutional neural network architecture achieving the [state-of-the-art accuracy with an order of magnitude fewer parameters and FLOPS](https://arxiv.org/abs/1905.11946), on both ImageNet and
 five other commonly used transfer learning datasets.
 
 The codebase is heavily inspired by the [TensorFlow implementation](https://github.com/tensorflow/tpu/tree/master/models/official/efficientnet).
+
+## Important!
+There was a huge library update **24 of July**. Now efficintnet works with both frameworks: `keras` and `tensorflow.keras`.
+If you have models, trained before that date, to load them, please, use efficientnet of 0.0.4 version (PyPI). You can roll back using `pip install -U efficientnet==0.0.4`.
 
 ## Table of Contents
 
@@ -12,7 +16,7 @@ The codebase is heavily inspired by the [TensorFlow implementation](https://gith
  3. [Models](#models)
  4. [Installation](#installation)
  5. [Frequently Asked Questions](#frequently-asked-questions)
-
+ 6. [Acknowledgements](#acknowledgements)
 
 ## About EfficientNet Models
 
@@ -42,16 +46,23 @@ EfficientNets achieve state-of-the-art accuracy on ImageNet with an order of mag
 * *Initializing the model*:
 
 ```python
-from efficientnet import EfficientNetB0
+# models can be build with Keras or Tensorflow frameworks
+# use keras and tfkeras modules respectively
+# efficientnet.keras / efficientnet.tfkeras
+import efficientnet.keras as efn 
 
-model = EfficientNetB0(weights='imagenet')
+model = efn.EfficientNetB0(weights='imagenet')
 
 ```
 
 * *Loading the pre-trained weights*:
 
 ```python
-from efficientnet import load_model
+# model use some custom objects, so before loading saved model
+# import module your network was build with
+# e.g. import efficientnet.keras / import efficientnet.tfkeras
+import efficientnet.tfkeras
+from tensorflow.keras.models import load_model
 
 model = load_model('path/to/model.h5')
 ```
@@ -62,37 +73,45 @@ See the complete example of loading the model and making an inference in the Jup
 
 The performance of each model variant using the pre-trained weights converted from checkpoints provided by the authors is as follows:
 
-| Architecture   | @top1* | @top5* | Weights |
-| -------------- | :----: | :----: | :-----: |
-| EfficientNetB0 | 0.7668 | 0.9312 |    +    |
-| EfficientNetB1 | 0.7863 | 0.9418 |    +    |
-| EfficientNetB2 | 0.7968 | 0.9475 |    +    |
-| EfficientNetB3 | 0.8083 | 0.9531 |    +    |
-| EfficientNetB4 | 0.8259 | 0.9612 |    +    |
-| EfficientNetB5 | 0.8309 | 0.9646 |    +    |
-| EfficientNetB6 |   -    |   -    |    -    |
-| EfficientNetB7 |   -    |   -    |    -    |
+| Architecture   | @top1* |
+| -------------- | :----: |
+| EfficientNetB0 | 0.772  |
+| EfficientNetB1 | 0.791  |
+| EfficientNetB2 | 0.802  |
+| EfficientNetB3 | 0.816  |
+| EfficientNetB4 | 0.830  |
+| EfficientNetB5 | 0.837  |
+| EfficientNetB6 | 0.841  |
+| EfficientNetB7 | 0.844  |
 
 **\*** - topK accuracy score for converted models (imagenet `val` set)
-
 
 ## Installation
 
 ### Requirements
 
-* `keras >= 2.2.0` + `tensorflow`
+* `Keras >= 2.2.0` / `TensorFlow >= 1.12.0`
+* `keras_applications >= 1.0.7`
 * `scikit-image`
 
 ### Installing from the source
 
 ```bash
-pip install -U git+https://github.com/qubvel/efficientnet
+$ pip install -U git+https://github.com/qubvel/efficientnet
 ```
 
 ### Installing from PyPI
 
+PyPI stable release
+
 ```bash
-pip install -U efficientnet
+$ pip install -U efficientnet
+```
+
+PyPI latest release (with keras and tf.keras support)
+
+```bash
+$ pip install -U --pre efficientnet
 ```
 
 ## Frequently Asked Questions
@@ -102,9 +121,13 @@ pip install -U efficientnet
 Pick the target directory (like `dist`) and run the [converter script](./scripts) from the repo directory as follows:
 
 ```bash
-./scripts/convert_efficientnet.sh dist
+$ ./scripts/convert_efficientnet.sh --target_dir dist
 ```
 
-* **Why are B6 and B7 model variants not yet supported?**
+You can also optionally create the virtual environment with all the dependencies installed by adding `--make_venv=true` and operate in a self-destructing temporary location instead of the target directory by setting `--tmp_working_dir=true`.
 
-Weights for B6-B7 have not been made available yet, but might appear soon. Follow the [issue](https://github.com/tensorflow/tpu/issues/377) for updates.
+## Acknowledgements
+I would like to thanks community members who actively contribute to this repository:
+
+1) Sasha Illarionov ([@sdll](https://github.com/sdll)) for preparing automated script for weights conversion
+2) Björn Barz ([@Callidior](https://github.com/Callidior)) for model code adaptation for keras and tensorflow.keras frameworks 

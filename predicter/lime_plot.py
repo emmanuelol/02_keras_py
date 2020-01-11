@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """ LIME """
 import os, sys
-from keras.preprocessing import image
 from skimage.segmentation import mark_boundaries
 import matplotlib.pyplot as plt
 import lime
-from lime import lime_image
 import pandas as pd
 import numpy as np
+
+import keras
 
 import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
@@ -26,7 +26,7 @@ def lime_explanation_from_keras_model(x, model, top_labels=5, hide_color=0, num_
     Return:
         LIMEのexplanationインスタンス
     """
-    explainer = lime_image.LimeImageExplainer()
+    explainer = lime.lime_image.LimeImageExplainer()
     # インスタンスから特徴をランダムに摂動させることによって近傍データを生成する
     explanation = explainer.explain_instance(x, model.predict
                                              , top_labels=top_labels
@@ -55,13 +55,8 @@ def plot_lime_skimage_segmentation(explanation, out_jpg=None, id=0, positive_onl
                                                 , min_weight=min_weight)
     lime_array = mark_boundaries(temp / 2 + 0.5, mask)
     if out_jpg is not None:
-        lime_img = image.array_to_img(lime_array)
+        lime_img = keras.preprocessing.image.array_to_img(lime_array)
         lime_img.save(out_jpg, 'JPEG', quality=100, optimize=True)
     plt.imshow(lime_array)
     plt.show()
     plt.clf()
-
-if __name__ == "__main__":
-    print('lime_plot.py: loaded as script file')
-else:
-    print('lime_plot.py: loaded as module file')

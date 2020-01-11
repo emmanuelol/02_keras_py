@@ -850,8 +850,3 @@ def dense_crf(
     else:
         proba = MAP.reshape((num_classes, height, width)).transpose(1, 2, 0)
     return proba
-
-if __name__ == '__main__':
-    print('ndimage.py: loaded as script file')
-else:
-    print('ndimage.py: loaded as module file')

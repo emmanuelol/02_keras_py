@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-import os
+"""
+残差をplotする
+"""
+import os, pathlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from pathlib import Path
 
 def plot_residual(out_dir, y_true_list=[], y_pred_list=[], label_list=[], title='Residual Plot'):
     """
@@ -72,7 +74,7 @@ def scatter_plot_from_regression_score_dir(pred_dir, out_path, df_task_id_name, 
     """
     plt.style.use('ggplot') # チャート綺麗に書くおまじない
 
-    os.makedirs(Path(out_path).parent, exist_ok=True)
+    os.makedirs(pathlib.Path(out_path).parent, exist_ok=True)
 
     plt.figure(figsize=figsize)
 
@@ -96,8 +98,3 @@ def scatter_plot_from_regression_score_dir(pred_dir, out_path, df_task_id_name, 
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=12) # 凡例を枠外に書く
     plt.savefig(out_path, bbox_inches="tight") # plt.savefig はplt.show() の前に書かないと白紙で保存される # label見切れ対策 bbox_inches="tight"
     plt.show()
-
-if __name__ == '__main__':
-    print('plot_residual.py: loaded as script file')
-else:
-    print('plot_residual.py: loaded as module file')

@@ -3,51 +3,48 @@ KerasのImageDataGeneratorのカスタムジェネレータークラス
 ImageDataGenerator+Mix-up+Random_Cropping+Random_Erasing
 
 Usage:
-import my_generator
-# 訓練画像水増し（Data Augmentation）
-train_datagen = my_generator.MyImageDataGenerator(
-    rescale=1.0,
-    shear_range = shear_range,
-    zoom_range=zoom_range,
-    mix_up_alpha=mix_up_alpha,
-    #random_crop=random_crop,
-    random_erasing_prob=random_erasing_prob,
-    random_erasing_maxpixel=1.0
+    import my_generator
+    # 訓練画像水増し（Data Augmentation）
+    train_datagen = my_generator.MyImageDataGenerator(
+        rescale=1.0,
+        shear_range = shear_range,
+        zoom_range=zoom_range,
+        mix_up_alpha=mix_up_alpha,
+        #random_crop=random_crop,
+        random_erasing_prob=random_erasing_prob,
+        random_erasing_maxpixel=1.0
+        )
+    # 検証画像_前処理実行
+    val_datagen = my_generator.get_datagen(rescale=1.0)
+
+    # 訓練画像用意
+    train_generator = datagen.flow_from_directory(
+        train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
+        target_size=(shape[0], shape[1]), # すべての画像はこのサイズにリサイズ
+        color_mode='rgb',# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
+        classes=classes, # 分類クラスリスト
+        class_mode='categorical', # 2値分類は「binary」、多クラス分類は「categorical」
+        batch_size=train_batch_size, # バッチごとにジェネレータから生成される画像の数
+        shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
     )
-# 検証画像_前処理実行
-val_datagen = my_generator.get_datagen(rescale=1.0)
+    # train_generator = train_datagen.flow(x_train, y_train, batch_size=train_batch_size)
 
-# 訓練画像用意
-train_generator = datagen.flow_from_directory(
-    train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
-    target_size=(shape[0], shape[1]), # すべての画像はこのサイズにリサイズ
-    color_mode='rgb',# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
-    classes=classes, # 分類クラスリスト
-    class_mode='categorical', # 2値分類は「binary」、多クラス分類は「categorical」
-    batch_size=train_batch_size, # バッチごとにジェネレータから生成される画像の数
-    shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
-)
-# train_generator = train_datagen.flow(x_train, y_train, batch_size=train_batch_size)
-
-# 検証画像用意
-validation_generator = valid_datagen.flow_from_directory(
-    train_data_dir,
-    target_size=(shape[0], shape[1]),
-    color_mode='rgb',
-    classes=classes,
-    class_mode='categorical',
-    batch_size=train_batch_size,# batch_size はセット内の画像の総数を正確に割るような数に設定しないと同じ画像を2回使うため、validation やtest setのbatch size は割り切れる数にすること！！！
-    shuffle=False# validation/test set は基本順番入れ替えない
-)
-# val_datagen.flow(x_test, y_test, batch_size=valid_batch_size)
+    # 検証画像用意
+    validation_generator = valid_datagen.flow_from_directory(
+        train_data_dir,
+        target_size=(shape[0], shape[1]),
+        color_mode='rgb',
+        classes=classes,
+        class_mode='categorical',
+        batch_size=train_batch_size,# batch_size はセット内の画像の総数を正確に割るような数に設定しないと同じ画像を2回使うため、validation やtest setのbatch size は割り切れる数にすること！！！
+        shuffle=False# validation/test set は基本順番入れ替えない
+    )
+    # val_datagen.flow(x_test, y_test, batch_size=valid_batch_size)
 
 """
-
-import numpy as np
-#from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
-from keras.preprocessing import image
-
 import os, sys
+import numpy as np
+
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
@@ -407,8 +404,3 @@ def get_cifar10_best_train_generator(x_train, y_train, batch_size):
     from experiment.cifar10_wrn_acc_97 import cifar10_wrn_acc_97
     train_gen = cifar10_wrn_acc_97.mode7_generator(x_train, y_train, batch_size)
     return train_gen
-
-if __name__ == '__main__':
-    print('my_generator.py: loaded as script file')
-else:
-    print('my_generator.py: loaded as module file')

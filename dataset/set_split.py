@@ -3,25 +3,25 @@
 画像dataの一部を各setに分ける
 
 Uses:
-# クラス名のリスト
-class_name = ['beagle', 'bikini', 'boke', 'cat', 'comic_book', 'fashion', 'marin', 'other', 'shingo', 'suit', 'tumblr']
+    # クラス名のリスト
+    class_name = ['beagle', 'bikini', 'boke', 'cat', 'comic_book', 'fashion', 'marin', 'other', 'shingo', 'suit', 'tumblr']
 
-# 全画像格納しているディレクトリ
-source_dir = r'D:\work\keras_iPhone_pictures\InceptionResNetV2'
+    # 全画像格納しているディレクトリ
+    source_dir = r'D:\work\keras_iPhone_pictures\InceptionResNetV2'
 
-# train/validation/test set に分ける画像ディレクトリ
-img_dir = r'D:\work\keras_iPhone_pictures\InceptionResNetV2_small_set\train_400'
+    # train/validation/test set に分ける画像ディレクトリ
+    img_dir = r'D:\work\keras_iPhone_pictures\InceptionResNetV2_small_set\train_400'
 
-train_1class_count = 400#100 #10 # train 1クラスの画像枚数
-valid_1class_count = 40#10 #5 # validaiton 1クラスの画像枚数
-test_1class_count = 10#10 #5  # test 1クラスの画像枚数
+    train_1class_count = 400#100 #10 # train 1クラスの画像枚数
+    valid_1class_count = 40#10 #5 # validaiton 1クラスの画像枚数
+    test_1class_count = 10#10 #5  # test 1クラスの画像枚数
 
-# クラスディレクトリごとに別れた指定ディレクトリの画像を tarin/val set に分けてコピーする
-split_class_train_valid_test_set(class_name, source_dir, img_dir
-                                 , train_count_org=train_1class_count
-                                 , valid_count_org=valid_1class_count
-                                 , test_count_org=test_1class_count
-                                )
+    # クラスディレクトリごとに別れた指定ディレクトリの画像を tarin/val set に分けてコピーする
+    split_class_train_valid_test_set(class_name, source_dir, img_dir
+                                    , train_count_org=train_1class_count
+                                    , valid_count_org=valid_1class_count
+                                    , test_count_org=test_1class_count
+                                    )
 """
 import os, sys, shutil, glob
 from tqdm import tqdm

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ディープラーニングを学習させるためのデータセットの準備
 https://github.com/yoyoyo-yo/DeepLearningMugenKnock/tree/master/Question_dataset

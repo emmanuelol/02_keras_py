@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Augmentorパッケージ（https://github.com/mdbloice/Augmentor）のutilモジュール
 Augmentorなら色反転画像や白黒画像が簡単に作成できる
@@ -98,7 +99,9 @@ def make_datagenerator_from_dir(input_dir, batch_size
     Args:
         input_dir:入力画像ディレクトリ
         batch_size:作成するdatageneratorのバッチサイズ
-        output_dir:出力画像ディレクトリ。input_dirの相対パス。デフォルトの場合input_dirの1つ上の階層に Augmentor_output ディレクトリが自動で作られて出力先になる
+        output_dir:出力画像ディレクトリ。
+                   input_dirの相対パス。デフォルトの場合input_dirの1つ上の階層に Augmentor_output ディレクトリが自動で作られて出力先になる
+                   /gpfsx01/home/aaa00162/tmp/ のようなフルパスにすると絶対パスにできる。
         scaled:1/255.の前処理するかのフラグ
         IDG_options:Augmentor Pipelineの水増しルールの辞書。IDG_options={'invert':1.0, 'rotate90':0.5}みたいなの
     Return:
@@ -112,7 +115,6 @@ def make_datagenerator_from_dir(input_dir, batch_size
     p = make_pipeline(input_dir=input_dir, output_dir=output_dir, **IDG_options) # パイプライン作成
     gen = p.keras_generator(batch_size=batch_size, scaled=scaled)
     return(gen)
-
 
 def make_datagenerator_from_array(X, y_onehot, batch_size, IDG_options={}):
     """
@@ -208,9 +210,3 @@ def get_base_IDG_options(input_width, input_height, prob=0.5):
                    #, 'invert':prob
                    }
     return IDG_options
-
-
-if __name__ == '__main__':
-    print('augmentor_util.py: loaded as script file')
-else:
-    print('augmentor_util.py: loaded as module file')

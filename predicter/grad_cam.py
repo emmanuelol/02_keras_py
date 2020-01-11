@@ -3,35 +3,49 @@
 Grad-CAM
 https://qiita.com/haru1977/items/45269d790a0ad62604b3 を参考に作成
 
-Usage:
-K.set_learning_phase(0) #Test時には0にセット modelロード前にこれがないとGradCamエラーになる
+Usage1:  全クラス(タスク)のgradcam画像作成する
+    keras.backend.set_learning_phase(0) #Test時には0にセット modelロード前にこれがないとGradCamエラーになる
 
-# GradCam出力先
-out_grad_cam_dir = os.path.join(out_dir, 'grad_cam/test')
+    # GradCam出力先
+    out_grad_cam_dir = os.path.join(out_dir, 'grad_cam/test')
 
-model = keras.models.load_model(os.path.join(out_dir, 'best_model.h5'), compile=False)
+    model = keras.models.load_model(os.path.join(out_dir, 'best_model.h5'), compile=False)
 
-layer_name = 'mixed10'
+    layer_name = 'mixed10'
 
-# 3次元numpy.array型の画像データ（*1./255.前）
-x = d_cls.X_train[0]*255.0
-input_img_name = 'train0'
+    # 3次元numpy.array型の画像データ（*1./255.前）
+    x = d_cls.X_train[0]*255.0
+    input_img_name = 'train0'
 
-# 1画像について各タスクのGradCamを計算
-grad_cam.branch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, layer_name, shape[0], shape[1])
-grad_cam.nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, layer_name, shape[0], shape[1])
+    # 1画像について各タスクのGradCamを計算
+    grad_cam.branch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, layer_name, shape[0], shape[1])
+    grad_cam.nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, layer_name, shape[0], shape[1])
+
+Usage2: コマンドラインから指定のクラス(タスク)のgradcam画像作成する
+    $ PYTHON=/home/bioinfo/.conda/envs/tfgpu_py36/bin/python
+    $ export PATH=/usr/local/cuda-8.0/bin:${PATH}
+    $ export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64:${LD_LIBRARY_PATH}
+    $ export CUDA_HOME=/usr/local/cuda-8.0
+    $ export KERAS_BACKEND=tensorflow
+    $ cat_dog=/gpfsx01/home/aaa00162/jupyterhub/notebook/other/bioinfo_tfgpu_py36_work/grad_cam_test/input/cat_dog.png
+    $ out_jpg=./tmp/grad_cat_dog.png
+    $ ${PYTHON} grad_cam.py --image_path ${cat_dog} # テスト用。imagenet_vgg16でgradcam。gradcam画像はimage_pathと同じディレクトリに出力
+    $ CUDA_VISIBLE_DEVICES=1 ${PYTHON} grad_cam.py --image_path ${cat_dog} --model_path model.h5 # 予測スコア最大クラスを指定モデルの最後のPooling層でgradcam
+    $ CUDA_VISIBLE_DEVICES=2 ${PYTHON} grad_cam.py --image_path ${cat_dog} --model_path model.h5 --layer_name mix10 --class_idx 0 --out_jpg ${out_jpg} # gradcamのクラスidや層指定、出力画像パスも措定
+    $ CUDA_VISIBLE_DEVICES=3 ${PYTHON} grad_cam.py --image_path ${cat_dog} --model_path model.h5 --is_gradcam_plus # gradcam++で実行
 """
-import os
-import keras
+import os, sys, time, shutil, glob, pathlib, argparse
 import cv2
 import pandas as pd
 import numpy as np
 from scipy.misc import imresize
-from keras import backend as K
-from keras.preprocessing import image
 from PIL import Image
 import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import zoom
+import warnings
+warnings.filterwarnings("ignore")
+
+import keras
 
 def preprocess_x(x):
     """
@@ -62,8 +76,8 @@ def grad_cam(model, X, x, layer_name, img_rows, img_cols, class_output):
     '''
     # 勾配を取得
     conv_output = model.get_layer(layer_name).output   # layer_nameのレイヤーのアウトプット
-    grads = K.gradients(class_output, conv_output)[0]  # gradients(loss, variables) で、variablesのlossに関しての勾配を返す
-    gradient_function = K.function([model.input], [conv_output, grads])  # model.inputを入力すると、conv_outputとgradsを出力する関数
+    grads = keras.backend.gradients(class_output, conv_output)[0]  # gradients(loss, variables) で、variablesのlossに関しての勾配を返す
+    gradient_function = keras.backend.function([model.input], [conv_output, grads])  # model.inputを入力すると、conv_outputとgradsを出力する関数
 
     output, grads_val = gradient_function([X])
     output, grads_val = output[0], grads_val[0]
@@ -92,20 +106,19 @@ def grad_cam_plus(model, X, x, layer_name, img_rows, img_cols, class_output):
     """
     input_model = model
     img, H, W = X, img_cols, img_rows
-    print(img.shape)
 
     y_c = class_output
     #cost = 全部のラベルの値。cost*label_indexでy_cになる
     conv_output = input_model.get_layer(layer_name).output
     #conv_output = target_conv_layer, mixed10の出力1,5,5,2048
-    grads = K.gradients(y_c, conv_output)[0]
+    grads = keras.backend.gradients(y_c, conv_output)[0]
     #grads = normalize(grads)
 
-    first = K.exp(y_c)*grads
-    second = K.exp(y_c)*grads*grads
-    third = K.exp(y_c)*grads*grads*grads
+    first = keras.backend.exp(y_c)*grads
+    second = keras.backend.exp(y_c)*grads*grads
+    third = keras.backend.exp(y_c)*grads*grads*grads
 
-    gradient_function = K.function([input_model.input], [y_c,first,second,third, conv_output, grads])
+    gradient_function = keras.backend.function([input_model.input], [y_c,first,second,third, conv_output, grads])
     y_c, conv_first_grad, conv_second_grad,conv_third_grad, conv_output, grads_val = gradient_function([img])
     global_sum = np.sum(conv_output[0].reshape((-1,conv_first_grad[0].shape[2])), axis=0)
 
@@ -161,8 +174,12 @@ def judge_evaluate(y_pred, y_true, positive=1, negative=0):
         judge = 'NAN'
     return judge
 
-def branch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true, layer_name, img_rows, img_cols,
-                          pred_threshold=0.5, grad_threshold=-1.0, is_gradcam_plus=False):
+def branch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true
+                          , layer_name=None
+                          , img_rows=None, img_cols=None
+                          , pred_threshold=None#0.5
+                          , grad_threshold=None#-1.0
+                          , is_gradcam_plus=False, predicted_score=None, run_gradcam_task_idx_list=None):
     """
     出力層のニューラルネットワークに分岐がある場合で
     1画像について各タスクのGradCamを計算
@@ -174,73 +191,119 @@ def branch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true, la
        y_true: 正解ラベル 5taskなら[0,1,1,0,0]のようなラベル
        layer_name: Poolingの直前の層の名前
        img_rows, img_cols: モデルの入力層のサイズ
-       pred_threshold: 予測スコアのposi/nega分ける閾値。バイナリ分類なので、デフォルトは0.5とする
-       grad_threshold: GradCam実行するか決める予測スコアの閾値。デフォルトは-1.0として必ず実行
+       pred_threshold: 予測スコアのposi/nega分ける閾値。バイナリ分類なので、デフォルトはNone(0.5)とする
+       grad_threshold: GradCam実行するか決める予測スコアの閾値。デフォルトはNoneとして必ず実行
        is_gradcam_plus: gradcam++で実行するか。Falseだと普通のgradcam実行
+       predicted_score: 予測済みpredict score
+       run_gradcam_task_idx_list: GradCam実行するタスクidのリスト。Noneの時は全タスクGradCam実行する
     Returns:
        最後のtaskのGrad-cam画像1枚（内部処理で全taskのGradCam画像を出力してる）
     """
-    # 推論実行するための前処理（画像を読み込んで4次元テンソルへ変換+前処理）
-    X = preprocess_x(x)
-    # 推論 予測スコア算出
-    pred_score = model.predict(X)
+    if img_rows is None or img_cols is None:
+        shape = [model.input_shape[1].value, model.input_shape[2].value, model.input_shape[3].value] # モデルオブジェクトの入力層のサイズ取得
+        img_rows, img_cols = shape[0], shape[1]
 
-    # 5タスクならpred_score = [array([[0.046]]), array([[0.04977]]), array([[0.4]]), array([[0.96]]), array([[0.085]])] のようなスコア出る
-    # Grad-Camで勾配計算するところで、特定のタスクの出力 model.output[:, task_idx] が必要
-    # マルチタスクだから各タスクのcamを計算すべき
-    #（シングルタスクの時はスコア最大のクラス（class_output = model.output[:, np.argmax(pred_score[0])]）を選んでいる）
+    if layer_name is None:
+        layer_name = get_last_conv_layer_name(model) # layer_nameなければモデルオブジェクトの最後の畳込み層の名前取得
+
+    X = preprocess_x(x)
+    if predicted_score is None:
+        pred_score = np.array([p_task[0] for p_task in model.predict(X)])
+    else:
+        pred_score = predicted_score
+    #print(f"pred_score, pred_score.shape: {pred_score}, {pred_score.shape}")
+    #print(f"pred_score[0][0], pred_score[0][1]: {pred_score[0][0]}, {pred_score[0][1]}")
+
+    # 各タスクごとに予測及びGrad-Camのしきい値変えるか判定
+    # pred_threshold, grad_threshold がNoneでないならそのまま各タスクに対するしきい値のリストにするだけ
+    pred_threshold_list = pred_threshold
+    if pred_threshold_list is None:
+        pred_threshold_list = [0.5] * pred_score.shape[0]
+    grad_threshold_list = grad_threshold
+    if grad_threshold_list is None:
+        grad_threshold_list = [-1.0] * pred_score.shape[0]
+    #print(f"pred_threshold_list, grad_threshold_list:{pred_threshold_list}, {grad_threshold_list}")
+
     grad_cam_img = None
     for task_idx in range(len(model.output)):
-        # taskのscore
-        pred_score_task = pred_score[task_idx][0][0]
-        # Tox21はバイナリ分類なので、確信度が0.5より大きい推論を1、それ以外を0に置換する
-        y_pred = (pred_score_task > pred_threshold) * 1.0
-        # スコアの桁省略
-        pred_score_task_form = "{0:.2f}".format(pred_score_task)
+        for class_idx in range(y_true.ndim):
+            # task_idの各クラスのscore
+            if pred_score.ndim == 2:
+                pred_score_task = pred_score[task_idx][class_idx]
+            elif pred_score.ndim == 3:
+                pred_score_task = pred_score[task_idx][0][class_idx]
+            #print(f"pred_score_task_{task_idx}_{class_idx}: {pred_score_task}")
 
-        # taskのscoreが閾値を超えていたらGradCam実行する
-        if float(pred_score_task) < float(grad_threshold):
-            continue
+            # バイナリ分類なので、確信度がpred_threshold_list[task_idx]より大きい推論を1、それ以外を0に置換する
+            y_pred = (pred_score_task > pred_threshold_list[task_idx]) * 1.0
+            # スコアの桁省略
+            pred_score_task_form = "{0:.2f}".format(pred_score_task)
 
-        # task_id を出力パスに含める
-        task_out_grad_cam_dir = os.path.join(out_grad_cam_dir, 'task'+str(task_idx))
-        # branchのmultitaskだと、model.outputがリスト
-        task_output = model.output[task_idx]
-        # binaryなのでクラスは1つ
-        class_idx = 0
-        class_output = task_output[:, class_idx]
-        # Grad-Cam実行
-        if is_gradcam_plus == True:
-            jetcam = grad_cam_plus(model, X, x, layer_name, img_rows, img_cols, task_output)
-        else:
-            jetcam = grad_cam(model, X, x, layer_name, img_rows, img_cols, class_output)
-        grad_cam_img = image.array_to_img(jetcam)
+            # GradCam実行するタスク指定する場合
+            is_run_gradcam_task_idx = True
+            if run_gradcam_task_idx_list is not None:
+                is_run_gradcam_task_idx = task_idx in run_gradcam_task_idx_list
+            # run_gradcam_task_idx_list に存在しない task_idx はGradCam実行しない
+            if is_run_gradcam_task_idx == False:
+                continue
 
-        if y_true is not None:
-            # 正解ラベルあれば TP/FN/FP/TN/NAN を判定し、判定結果を出力パスに含める
-            judge = judge_evaluate(y_pred, y_true[task_idx], positive=1., negative=0.)
-            judge_out_grad_cam_dir = os.path.join(task_out_grad_cam_dir, judge)
-            # ファイル出力先作成
-            os.makedirs(judge_out_grad_cam_dir, exist_ok=True)
-            # Grad-cam画像保存
-            out_jpg = input_img_name+'_task'+str(task_idx)+'_score='+str(pred_score_task_form)+'.jpg'
-            grad_cam_img.save(os.path.join(judge_out_grad_cam_dir, out_jpg), 'JPEG', quality=100, optimize=True)
-        else:
-            # ファイル出力先作成
-            os.makedirs(task_out_grad_cam_dir, exist_ok=True)
-            # Grad-cam画像保存
-            out_jpg = input_img_name+'_task'+str(task_idx)+'_score='+str(pred_score_task_form)+'.jpg'
-            grad_cam_img.save(os.path.join(task_out_grad_cam_dir, out_jpg), 'JPEG', quality=100, optimize=True)
+            # taskのscoreが閾値を超えていたらGradCam実行する
+            if float(pred_score_task) < float(grad_threshold_list[task_idx]):
+                continue
 
-        # Grad-cam画像表示
-        #print(out_jpg)
-        #plt.imshow(grad_cam_img)
-        #plt.show()
-        #plt.clf() # plotの設定クリアにする
+            # task_id を出力パスに含める
+            task_out_grad_cam_dir = os.path.join(out_grad_cam_dir, 'task'+str(task_idx))
+
+            # branchのmultitaskだと、model.outputがリスト
+            task_output = model.output[task_idx]
+            #print(f"task_output: {task_output}")
+
+            # task_idの特定のクラスでgradcam計算
+            class_output = task_output[:, class_idx] # task_output[0, class_idx] でないとエラーになるケースあった
+            #print(f"class_output: {class_output}")
+
+            # Grad-Cam実行
+            if is_gradcam_plus == True:
+                jetcam = grad_cam_plus(model, X, x, layer_name, img_rows, img_cols, class_output)
+            else:
+                jetcam = grad_cam(model, X, x, layer_name, img_rows, img_cols, class_output)
+            grad_cam_img = keras.preprocessing.image.array_to_img(jetcam)
+
+            if y_true is not None:
+                if y_true.ndim == 1:
+                    y_t = y_true[task_idx]
+                else:
+                    y_t = y_true[task_idx][class_idx]
+                #print(f"y_t: {y_t}")
+
+                # 正解ラベルあれば TP/FN/FP/TN/NAN を判定し、判定結果を出力パスに含める
+                judge = judge_evaluate(y_pred, y_t, positive=1., negative=0.)
+                judge_out_grad_cam_dir = os.path.join(task_out_grad_cam_dir, judge)
+                #print(f"judge_out_grad_cam_dir: {judge_out_grad_cam_dir}")
+                # ファイル出力先作成
+                os.makedirs(judge_out_grad_cam_dir, exist_ok=True)
+                # Grad-cam画像保存
+                out_jpg = input_img_name+'_task'+str(task_idx)+'_'+str(class_idx)+'_score='+str(pred_score_task_form)+'.jpg'
+                grad_cam_img.save(os.path.join(judge_out_grad_cam_dir, out_jpg), 'JPEG', quality=100, optimize=True)
+            else:
+                # ファイル出力先作成
+                os.makedirs(task_out_grad_cam_dir, exist_ok=True)
+                # Grad-cam画像保存
+                out_jpg = input_img_name+'_task'+str(task_idx)+'_'+str(class_idx)+'_score='+str(pred_score_task_form)+'.jpg'
+                grad_cam_img.save(os.path.join(task_out_grad_cam_dir, out_jpg), 'JPEG', quality=100, optimize=True)
+            # Grad-cam画像表示
+            #print(out_jpg)
+            #plt.imshow(grad_cam_img)
+            #plt.show()
+            #plt.clf() # plotの設定クリアにする
     return grad_cam_img
 
-def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true, layer_name, img_rows, img_cols,
-                            pred_threshold=0.5, grad_threshold=-1.0, is_gradcam_plus=False):
+def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true
+                            , layer_name=None
+                            , img_rows=None, img_cols=None
+                            , pred_threshold=None#0.5
+                            , grad_threshold=None#-1.0
+                            , is_gradcam_plus=False, predicted_score=None, run_gradcam_task_idx_list=None):
     """
     出力層のニューラルネットワークに分岐がない場合で
     1画像について各タスクのGradCamを計算
@@ -252,16 +315,37 @@ def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true, 
        y_true: 正解ラベル 5taskなら[0,1,1,0,0]のようなラベル
        layer_name: Poolingの直前の層の名前
        img_rows, img_cols: モデルの入力層のサイズ
-       pred_threshold: 予測スコアのposi/nega分ける閾値。バイナリ分類なので、デフォルトは0.5とする
-       grad_threshold: GradCam実行するか決める予測スコアの閾値。デフォルトは-1.0として必ず実行
+       pred_threshold: 予測スコアのposi/nega分ける閾値。バイナリ分類なので、デフォルトはNone(0.5)とする
+       grad_threshold: GradCam実行するか決める予測スコアの閾値。デフォルトはNoneとして必ず実行
        is_gradcam_plus: gradcam++で実行するか。Falseだと普通のgradcam実行
+       predicted_score: 予測済みpredict score
+       run_gradcam_task_idx_list: GradCam実行するタスクidのリスト。Noneの時は全タスクGradCam実行する
     Returns:
        最後のtaskのGrad-cam画像1枚（内部処理で全taskのGradCam画像を出力してる）
     """
+    if img_rows is None or img_cols is None:
+        shape = [model.input_shape[1].value, model.input_shape[2].value, model.input_shape[3].value] # モデルオブジェクトの入力層のサイズ取得
+        img_rows, img_cols = shape[0], shape[1]
+
+    if layer_name is None:
+        layer_name = get_last_conv_layer_name(model) # layer_nameなければモデルオブジェクトの最後の畳込み層の名前取得
+
     # 推論実行するための前処理（画像を読み込んで4次元テンソルへ変換+前処理）
     X = preprocess_x(x)
-    # 推論 予測スコア算出
-    pred_score = model.predict(X)
+    if predicted_score is None:
+        # 推論 予測スコア算出
+        pred_score = model.predict(X)
+    else:
+        pred_score = predicted_score
+
+    # 各タスクごとに予測及びGrad-Camのしきい値変えるか判定
+    # pred_threshold, grad_threshold がNoneでないならそのまま各タスクに対するしきい値のリストにするだけ
+    pred_threshold_list = pred_threshold
+    if pred_threshold_list is None:
+        pred_threshold_list = [0.5] * pred_score.shape[1]
+    grad_threshold_list = grad_threshold
+    if grad_threshold_list is None:
+        grad_threshold_list = [-1.0] * pred_score.shape[1]
 
     # 5タスクならpred_score = [[ 0.046  0.04977  0.4  0.96  0.085]] のようなスコア出る
     # Grad-Camで勾配計算するところで、特定のタスクの出力 model.output[:, task_idx] が必要
@@ -271,25 +355,37 @@ def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true, 
     for task_idx in range(pred_score.shape[1]):
         # taskのscore
         pred_score_task = pred_score[0,task_idx]
-        # Tox21はバイナリ分類なので、確信度が0.5より大きい推論を1、それ以外を0に置換する
-        y_pred = (pred_score_task > pred_threshold) * 1.0
+        # バイナリ分類なので、確信度がpred_threshold_list[task_idx]より大きい推論を1、それ以外を0に置換する
+        y_pred = (pred_score_task > pred_threshold_list[task_idx]) * 1.0
+        #print(pred_score_task, pred_threshold_list[task_idx], y_pred)
         # スコアの桁省略
         pred_score_task_form = "{0:.2f}".format(pred_score_task)
+        #print(pred_score.shape, len(grad_threshold_list), task_idx, pred_score_task_form)
+        # GradCam実行するタスク指定する場合
+        is_run_gradcam_task_idx = True
+        if run_gradcam_task_idx_list is not None:
+            is_run_gradcam_task_idx = task_idx in run_gradcam_task_idx_list
+        # run_gradcam_task_idx_list に存在しない task_idx はGradCam実行しない
+        if is_run_gradcam_task_idx == False:
+            continue
 
         # taskのscoreが閾値を超えていたらGradCam実行する
-        if float(pred_score_task) < float(grad_threshold):
-            #print(f'{pred_score_task} < {grad_threshold}')
+        #print(f'{pred_score_task} < {grad_threshold_list[task_idx]}')
+        if float(pred_score_task) < float(grad_threshold_list[task_idx]):
+            #print(f'{pred_score_task} < {grad_threshold_list[task_idx]}')
             continue
 
         # task_id を出力パスに含める
         task_out_grad_cam_dir = os.path.join(out_grad_cam_dir, 'task'+str(task_idx))
         # Grad-Cam実行
-        task_output = model.output[:, task_idx]
+        task_output = model.output[:, task_idx] # model.output[0, task_idx] でないとエラーになるケースあった
+        #print(keras.backend.dtype(task_output))
+        #print(f"keras.backend.eval(task_output), model.output.shape:, {keras.backend.eval(task_output)}, {model.output.shape}")
         if is_gradcam_plus == True:
             jetcam = grad_cam_plus(model, X, x, layer_name, img_rows, img_cols, task_output)
         else:
             jetcam = grad_cam(model, X, x, layer_name, img_rows, img_cols, task_output)
-        grad_cam_img = image.array_to_img(jetcam)
+        grad_cam_img = keras.preprocessing.image.array_to_img(jetcam)
 
         if y_true is not None:
             # 正解ラベルあれば TP/FN/FP/TN/NAN を判定し、判定結果を出力パスに含める
@@ -314,7 +410,99 @@ def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true, 
         #plt.clf() # plotの設定クリアにする
     return grad_cam_img
 
+def get_last_conv_layer_name(model):
+    """ モデルオブジェクトの最後のPooling層の名前取得（gradcamで出力層に一番近い畳込み層の名前必要なので） """
+    for i in range(len(model.layers)):
+        #print(i, model.layers[i], model.layers[i].name, model.layers[i].trainable, model.layers[i].output)
+        if len(model.layers[i].output.shape) == 4:
+            last_conv_layer_name = model.layers[i].name
+    return last_conv_layer_name
+
+def image2numpy_keras(image_path:str, shape):
+    """
+    kerasのAPIで画像ファイルをリサイズしてnp.arrayにする
+    Args:
+        image_path:画像ファイルパス
+        target_size:リサイズする画像サイズ.[331,331,3]みたいなの
+    """
+    img = keras.preprocessing.image.load_img(image_path, target_size=shape[:2])
+    x = keras.preprocessing.image.img_to_array(img)
+    return x
+
+def image2gradcam(model, image_path:str, X=None, layer_name=None, class_idx=None, out_jpg=None, is_gradcam_plus=False):
+    """
+    画像ファイル1枚からGradCam実行して画像保存
+    Args:
+       model:モデルオブジェクト
+       image_path:入力画像パス
+       X:4次元numpy.array型の画像データ（*1./255.後）。Noneならimage_pathから作成する
+       layer_name:GradCamかける層の名前。Noneならモデルの最後のPooling層の名前取得にする
+       class_idx:GradCamかけるクラスid。Noneなら予測スコア最大クラスでGradCamかける
+       out_jpg:GradCam画像出力先パス。Noneならimage_pathから作成する
+       is_gradcam_plus:gradcam++で実行するか。Falseだと普通のgradcam実行
+    """
+    shape = [model.input.shape[1].value, model.input.shape[2].value, model.input.shape[3].value] # モデルオブジェクトの入力層のサイズ取得
+    x = image2numpy_keras(image_path, shape) # 画像ファイルをリサイズしてnp.arrayにする
+
+    if X is None:
+        X = preprocess_x(x) # np.arrayの画像前処理
+
+    if layer_name is None:
+        layer_name = get_last_conv_layer_name(model) # layer_nameなければモデルオブジェクトの最後の畳込み層の名前取得
+
+    if class_idx is None:
+        pred_score = model.predict(X)[0]
+        class_idx = np.argmax(pred_score) # class_idxなければ予測スコア最大クラスでgradcamかける
+
+    # Grad-Cam実行
+    class_output = model.output[:, class_idx]
+    if is_gradcam_plus == True:
+        jetcam = grad_cam_plus(model, X, x, layer_name, shape[0], shape[1], class_output) # gradcam++で実行
+    else:
+        jetcam = grad_cam(model, X, x, layer_name, shape[0], shape[1], class_output)
+    grad_cam_img = keras.preprocessing.image.array_to_img(jetcam)
+
+    # Grad-Cam画像保存
+    if out_jpg is None:
+        if is_gradcam_plus == True:
+            out_jpg = str(pathlib.Path(image_path).parent)+'/'+str(pathlib.Path(image_path).stem)+f"_classidx{class_idx}_gradcam++.jpg"
+        else:
+            out_jpg = str(pathlib.Path(image_path).parent)+'/'+str(pathlib.Path(image_path).stem)+f"_classidx{class_idx}_gradcam.jpg"
+        print(f"out_jpg: {out_jpg}")
+    grad_cam_img.save(out_jpg, 'JPEG', quality=100, optimize=True)
+
+    return grad_cam_img
+
+def main(args):
+    if args.model_path is None:
+        #import urllib.request
+        ## proxy の設定
+        #proxy_support = urllib.request.ProxyHandler({'http' : 'http://apiproxy:8080', 'https': 'https://apiproxy:8080'})
+        #opener = urllib.request.build_opener(proxy_support)
+        #urllib.request.install_opener(opener)
+        # テスト用にモデルファイルなしなら imagenet_vgg16 で gradcam 実行できるようにしておく
+        model = keras.applications.vgg16.VGG16(weights='imagenet') # imagenet_vgg16モデルロード
+        x = image2numpy_keras(args.image_path, [224,224,3]) # 画像ファイルをリサイズしてnp.arrayにする
+        X = np.expand_dims(x, axis=0)
+        X = X.astype('float32')
+        X = keras.applications.vgg16.preprocess_input(X) # imagenet_vgg16の画像前処理
+        grad_cam_img = image2gradcam(model, args.image_path, X=X, layer_name='block5_conv3', is_gradcam_plus=args.is_gradcam_plus)
+    else:
+        model = keras.models.load_model(args.model_path, compile=False) # モデルロード
+        grad_cam_img = image2gradcam(model, args.image_path, layer_name=args.layer_name, class_idx=args.class_idx, out_jpg=args.out_jpg, is_gradcam_plus=args.is_gradcam_plus)
+    return
+
 if __name__ == "__main__":
-    print('grad_cam.py: loaded as script file')
-else:
-    print('grad_cam.py: loaded as module file')
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--image_path", type=str, required=True, help="input image path.")
+    ap.add_argument("--model_path", type=str, default=None, help="model path.")
+    ap.add_argument("--layer_name", type=str, default=None, help="gradcam layer_name.")
+    ap.add_argument("--class_idx", type=int, default=None, help="gradcam class_idx.")
+    ap.add_argument("--out_jpg", type=str, default=None, help="output gradcam jpg path.")
+    ap.add_argument("--is_gradcam_plus", action='store_const', const=True, default=False, help="Grad-Cam++ flag.")
+    args = ap.parse_args()
+
+    keras.backend.clear_session()
+    keras.backend.set_learning_phase(0)
+
+    main(args)

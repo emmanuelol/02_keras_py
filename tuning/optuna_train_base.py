@@ -21,12 +21,12 @@ optunaの関数メモ：
     trial.suggest_uniform('name', 0, 100): 0-100のいずれかを選択
 """
 import os, sys
-import keras
-import keras.backend as K
 import copy
 import uuid # UUIDはPython組み込みのUUIDモジュール. ランダムなUUIDは簡単に発生させることができる
 import shutil
 import numpy as np
+
+import keras
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
@@ -109,7 +109,7 @@ class Objective(object):
                   , class_name = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'] # クラス名
                   , epochs=30 # エポック数
                   , gpu_count=1 # GPUの数
-                  , loss='categorical_crossentropy'#multi_loss.build_masked_loss(K.binary_crossentropy) # 損失関数
+                  , loss='categorical_crossentropy'#multi_loss.build_masked_loss(keras.backend.binary_crossentropy) # 損失関数
                   , metrics=['acc']#['accuracy', 'binary_accuracy', multi_loss.masked_accuracy] # model.fit_generator()で使うメトリック
                   , verbose=0 # model.fit_generator()でログ出すか.0なら出さない.2ならエポックごとにログ出す.1はstepごとに出すためログが膨大になるので使わない
                   , activation='softmax'#'sigmoid' # 出力層の活性化関数
@@ -524,7 +524,7 @@ class Objective(object):
         # Calculate an objective value by using the extra arguments.
         """optunaの目的関数定義（チューニングするパラメータをこの関数に書いて、学習結果のhistoryをreturnする）"""
         #セッションのクリア
-        K.clear_session()
+        keras.backend.clear_session()
 
         # ---------------- 乱数固定 ---------------- #
         # https://qiita.com/okotaku/items/8d682a11d8f2370684c9
@@ -539,10 +539,9 @@ class Objective(object):
             intra_op_parallelism_threads=1,
             inter_op_parallelism_threads=1
         )
-        #from keras import backend as K
         tf.set_random_seed(7)
         sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-        K.set_session(sess)
+        keras.backend.set_session(sess)
         # ----------------------------------------- #
 
         # 試行にUUIDを設定

@@ -2,96 +2,34 @@
 """
 imagenetの学習済みモデルをfine_tuningしてモデルを定義する
 
-クラス数やハイパーパラメータは引数から変更する
-
 Usage:
-import os, sys
-current_dir = os.path.dirname(os.path.abspath("__file__"))
-path = os.path.join(current_dir, '../')
-sys.path.append(path)
-from model import define_model
+    import os, sys
+    current_dir = os.path.dirname(os.path.abspath("__file__"))
+    path = os.path.join(current_dir, '../')
+    sys.path.append(path)
+    from model import define_model
 
-# モデル作成
-model, orig_model = define_model.get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
-                                                   , chaice_model, trainable
-                                                   , FCnum)
-# オプティマイザ
-optim = define_model.get_optimizers(choice_optim)
+    output_dir = r'output_test\100x100'
+    img_rows,img_cols,channels = 100,100,3
+    num_classes = 10
+    chaice_model = 'EfficientNet'
+    choice_optim = 'adam'
 
-# モデルコンパイル
-define_model.compile(loss='categorical_crossentropy',
-                  optimizer=optim,
-                  metrics=['accuracy'])
+    # モデル作成
+    model, orig_model = define_model.get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes, chaice_model, efficientnet_num=7)
+    # オプティマイザ
+    optim = define_model.get_optimizers(choice_optim)
+    # モデルコンパイル
+    model.compile(loss='categorical_crossentropy', optimizer=optim, metrics=['accuracy'])
 """
-
-# プロキシ apiproxy:8080 があるので下記の設定入れないとデータダウンロードでエラーになる
-import urllib.request
-# proxy の設定
-proxy_support = urllib.request.ProxyHandler({'http' : 'http://apiproxy:8080', 'https': 'https://apiproxy:8080'})
-opener = urllib.request.build_opener(proxy_support)
-urllib.request.install_opener(opener)
-
 import os, sys
+import numpy as np
+
 import keras
-from keras import optimizers
-from keras.models import Model, load_model, model_from_json
-from keras.applications.vgg16 import VGG16
-from keras.applications.resnet50 import ResNet50
-from keras.applications.inception_v3 import InceptionV3
-from keras.applications.xception import Xception
-from keras.applications.inception_resnet_v2  import InceptionResNetV2
-from keras.layers.normalization import BatchNormalization
-from keras.layers import Input, Activation, Dropout, Flatten, Dense, GlobalAveragePooling2D, GlobalMaxPooling2D
-from keras import backend as K
-from keras.utils import multi_gpu_model
-from keras import regularizers
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
-
-# githubのNasnetをimport
-# https://github.com/titu1994/Keras-NASNet/blob/master/README.md
-sys.path.append( str(current_dir) + '/../Git/Keras-NASNet' )
-from nasnet import NASNetLarge
-
-# githubのSenetをimport
-# https://github.com/titu1994/keras-squeeze-excite-network
-sys.path.append( str(current_dir) + '/../Git/keras-squeeze-excite-network' )
-import se_inception_v3, se_densenet, se_inception_resnet_v2, se_resnet, se_resnext, se
-
-# githubのWideResnetをimport
-# https://github.com/titu1994/Wide-Residual-Networks
-sys.path.append( str(current_dir) + '/../Git/Wide-Residual-Networks' )
-import wide_residual_network as wrn
-import wide_residual_network_include_top_false as wrn_top_false # 出力層消したの
-
-# githubのAdaBoundをimport
-# https://github.com/titu1994/keras-adabound
-sys.path.append( str(current_dir) + '/../Git/keras-adabound' )
-from adabound import AdaBound
-
-# githubのWideResNet + OctConvをimport
-# https://qiita.com/koshian2/items/0e40a5930f1aa63a66b9
-sys.path.append( str(current_dir) + '/../Git/OctConv-TFKeras' )
-#import models as oct_wrn
-from oct_conv2d import OctConv2D # load_model(… custom_objects={'OctConv2D':OctConv2D}, compile=False) が必要
-import models_include_top_false as oct_wrn_top_false # 出力層消したの
-
-# githubのEfficientNetをimport
-# https://github.com/qubvel/efficientnet
-sys.path.append( str(current_dir) + '/../Git/efficientnet' )
-import efficientnet
-from efficientnet import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
-
-# githubのPeleeNet
-sys.path.append( str(current_dir) + '/../Git/PeleeNet-Keras' )
-import pelee_net_keras
-
-# githubのRAdamをimport
-# https://github.com/CyberZHG/keras-radam
-sys.path.append( str(current_dir) + '/../Git/keras-radam' )
-from keras_radam import RAdam
 
 def save_architecture(model, output_dir):
     """モデルの構造保存"""
@@ -100,280 +38,144 @@ def save_architecture(model, output_dir):
     json_string = model.to_json()
     open(json_path,"w").write(json_string)
 
-def get_VGG16_model(output_dir, img_rows=224, img_cols=224, channels=3):
-    """
-    vgg16_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらVGG16のデフォルトの224*224*3になる
-    """
-    model_path = os.path.join(output_dir, 'vgg16.h5py')
+def get_imagenet_model(output_dir:str, choice_model:str, img_rows:int, img_cols:int, channels=3, is_include_top=False, is_imagenet_model_save=True):
+    """ VGG16などimagenetのモデル取得 """
+    ## プロキシ apiproxy:8080 があるので下記の設定入れないとデータダウンロードでエラーになる
+    #import urllib.request
+    ## proxy の設定
+    #proxy_support = urllib.request.ProxyHandler({'http' : 'http://apiproxy:8080', 'https': 'https://apiproxy:8080'})
+    #opener = urllib.request.build_opener(proxy_support)
+    #urllib.request.install_opener(opener)
+
+    model_path = os.path.join(output_dir, choice_model+'.h5py')
     os.makedirs(output_dir, exist_ok=True)
     if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        model = VGG16(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
+        input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
+        if choice_model.lower() == 'vgg16':# trainable == 15 img_rows=224, img_cols=224, channels=3
+            model = keras.applications.vgg16.VGG16(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'resnet50':# trainable == 164 img_rows=224, img_cols=224, channels=3
+            model = keras.applications.resnet50.ResNet50(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'inceptionv3':# trainable == 249 img_rows=299, img_cols=299, channels=3
+            model = keras.applications.inception_v3.InceptionV3(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'xception':# trainable == 116 img_rows=299, img_cols=299, channels=3
+            model = keras.applications.xception.Xception(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'inceptionresnetv2': # trainable == 761 img_rows=299, img_cols=299, channels=3
+            model = keras.applications.inception_resnet_v2.InceptionResNetV2(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'nasnetlarge':
+            model = keras.applications.nasnet.NASNetLarge(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'mobilenet':
+            model = keras.applications.mobilenet.MobileNet(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'mobilenetv2':
+            model = keras.applications.mobilenet_v2.MobileNetV2(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        if is_imagenet_model_save:
+            model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     else:
-        model = load_model(model_path)
+        keras_ver = str(keras.__version__).split('.')
+        if (int(keras_ver[0]) == 2) & (int(keras_ver[1]) < 2): # kerasのバージョン判定
+            # 古いkerasでMobileNetをロードするには、カスタムオブジェクト必要
+            if choice_model.lower() == 'mobilenet':
+                model = keras.models.load_model(model_path, custom_objects={'relu6': keras.applications.mobilenet.relu6, 'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D})
+            elif choice_model.lower() == 'mobilenetv2':
+                model = keras.models.load_model(model_path, custom_objects={'relu6': keras.applications.mobilenetv2.relu6})
+        else:
+            model = keras.models.load_model(model_path)
+
     return model
 
-def get_ResNet50_model(output_dir, img_rows=224, img_cols=224, channels=3):
-    """
-    ResNet50_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらResNet50のデフォルトの224*224*3になる
-    """
-    model_path = os.path.join(output_dir, 'ResNet50.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        model = ResNet50(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
-
-def get_InceptionV3_model(output_dir, img_rows=299, img_cols=299, channels=3):
-    """
-    InceptionV3_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらInceptionV3のデフォルトの299*299*3になる
-    """
-    model_path = os.path.join(output_dir, 'InceptionV3.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        model = InceptionV3(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
-
-def get_Xception_model(output_dir, img_rows=299, img_cols=299, channels=3):
-    """
-    Xception_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらXceptionのデフォルトの299*299*3になる
-    """
-    model_path = os.path.join(output_dir, 'Xception.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        model = Xception(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
-
-def get_InceptionResNetV2_model(output_dir, img_rows=299, img_cols=299, channels=3):
-    """
-    InceptionResNetV2_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらInceptionResNetV2のデフォルトの299*299*3になる
-    """
-    model_path = os.path.join(output_dir, 'InceptionResNetV2.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        model = InceptionResNetV2(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
-
-def get_MobileNet_model(output_dir, img_rows=224, img_cols=224, channels=3):
-    """
-    MobileNet_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらMobileNetのデフォルトの224*224*3になる
-    """
-    from keras.applications.mobilenet import MobileNet
-    model_path = os.path.join(output_dir, 'MobileNet.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        model = MobileNet(weights='imagenet', include_top=False, input_shape=(img_rows, img_cols, channels))
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        # load_modelからMobileNetモデルをロードするには、カスタムオブジェクトのrelu6をインポートし，custom_objectsパラメータに渡す
-        model = load_model(model_path,
-                           custom_objects={'relu6': keras.applications.mobilenet.relu6,
-                                           'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D})
-    return model
-
-def get_MobileNetV2_model(output_dir, img_rows=224, img_cols=224, channels=3):
-    """
-    MobileNetV2_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらMobileNetV2のデフォルトの224*224*3になる
-    Google Colab(keras2.2.4)でロードできた
-    """
-    from keras.applications.mobilenetv2 import MobileNetV2
-    model_path = os.path.join(output_dir, 'MobileNetV2.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(img_rows, img_cols, channels))
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
-
-# -------------- github model --------------
-def get_NASNetLarge_model(output_dir, img_rows=331, img_cols=331, channels=3):
+# ------------------------------------------ github model ------------------------------------------
+def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3, is_include_top=False, is_imagenet_model_save=True):
     """
     NASNetLarge_modelダウンロード及びロード
     入力層のサイズはオプション引数で指定可能。省略したらNASNetLargeのデフォルトの331*331*3になる
     """
+    # githubのNasnetをimport
+    # https://github.com/titu1994/Keras-NASNet/blob/master/README.md
+    sys.path.append( str(current_dir) + '/../Git/Keras-NASNet' )
+    from nasnet import NASNetLarge
+
     model_path = os.path.join(output_dir, 'NASNetLarge.h5py')
     os.makedirs(output_dir, exist_ok=True)
     if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        # 畳み込みの最後のpoolingも引数で追加できるみたい
-        # pooling='avg'にしたらglobal_average_pooling
-        # pooling='max'にしたらGlobalMaxPooling2D
-        model = NASNetLarge(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
+        input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
+        model = NASNetLarge(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+        if is_imagenet_model_save:
+            model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     else:
         model = load_model(model_path)
     return model
 
-def get_SEResNet_model(output_dir, img_rows=224, img_cols=224, channels=3, seresnet_num=154):
+def get_SENet_model(output_dir:str, choice_model:str, img_rows=224, img_cols=224, channels=3
+                        , seresnet_num=154, sedensenet_num=169, seresnext_num=50
+                        , is_include_top=False, is_model_save=False):
     """
-    SEResNet_modelダウンロード及びロード
+    SENet_modelダウンロード及びロード
+    ※SENetのモデルはweights='imagenet'としてもimagenetの重みファイルロードしない
     入力層のサイズはオプション引数で指定可能。省略したらResNetのデフォルトの224*224*3になる
-    seresnet_num の数字で以下の種類のどれ使うか選ぶ. デフォルトは SEResNet154 にしておく
-    SEResNet18
-    SEResNet34
-    SEResNet50
-    SEResNet101
-    SEResNet154
+    seresnet_num の数字でどれ使うか選ぶ. デフォルトは SEResNet154 にしておく
+    sedensenet_num の数字でどれ使うか選ぶ. デフォルトはSEDenseNetImageNet169 にしておく
+    seresnext_num の数字でどれ使うか選ぶ. デフォルトは SEResNeXt-50 にしておく
     """
-    model_path = os.path.join(output_dir, 'SEResNet'+str(seresnet_num)+'.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # SENetのモデルはweights='imagenet'としてもimagenetの重みファイルロードしない
-        if seresnet_num == 18:
-            model = se_resnet.SEResNet18(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        elif seresnet_num == 34:
-            model = se_resnet.SEResNet34(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        elif seresnet_num == 50:
-            model = se_resnet.SEResNet50(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        elif seresnet_num == 101:
-            model = se_resnet.SEResNet101(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        elif seresnet_num == 154:
-            model = se_resnet.SEResNet154(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
+    # githubのSenetをimport
+    # https://github.com/titu1994/keras-squeeze-excite-network
+    sys.path.append( str(current_dir) + '/../Git/keras-squeeze-excite-network' )
+    import se_inception_v3, se_densenet, se_inception_resnet_v2, se_resnet, se_resnext, se
 
-def get_SEInceptionV3_model(output_dir, img_rows=299, img_cols=299, channels=3):
-    """
-    SEInceptionV3_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらInceptionV3のデフォルトの299*299*3になる
-    """
-    model_path = os.path.join(output_dir, 'SEInceptionV3.h5py')
+    model_path = os.path.join(output_dir, choice_model+'.h5py')
     os.makedirs(output_dir, exist_ok=True)
+    input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
     if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        # 畳み込みの最後のpoolingも引数で追加できるみたい
-        # pooling='avg'にしたらglobal_average_pooling
-        # pooling='max'にしたらGlobalMaxPooling2D
-        # SENetのモデルはweights='imagenet'としてもimagenetの重みファイルロードしない
-        model = se_inception_v3.SEInceptionV3(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
+        if choice_model.lower() == 'seresnet':
+            print('seresnet_num =', seresnet_num)
+            if seresnet_num == 18:
+                model = se_resnet.SEResNet18(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+            elif seresnet_num == 34:
+                model = se_resnet.SEResNet34(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+            elif seresnet_num == 50:
+                model = se_resnet.SEResNet50(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+            elif seresnet_num == 101:
+                model = se_resnet.SEResNet101(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+            elif seresnet_num == 154:
+                model = se_resnet.SEResNet154(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
 
-def get_SEInceptionResNetV2_model(output_dir, img_rows=299, img_cols=299, channels=3):
-    """
-    SEInceptionResNetV2_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらInceptionResNetV2のデフォルトの299*299*3になる
-    """
-    model_path = os.path.join(output_dir, 'SEInceptionResNetV2.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # 最後の全結合層はいらないのでinclude_top=False
-        # input_tensorを指定しておかないとoutput_shapeがNoneになってエラーになる
-        # 畳み込みの最後のpoolingも引数で追加できるみたい
-        # pooling='avg'にしたらglobal_average_pooling
-        # pooling='max'にしたらGlobalMaxPooling2D
-        # SENetのモデルはweights='imagenet'としてもimagenetの重みファイルロードしない
-        model = se_inception_resnet_v2.SEInceptionResNetV2(weights='imagenet', include_top=False, input_tensor=input_tensor)#, pooling='avg')
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
+        if choice_model.lower() == 'seinceptionv3':
+            model = se_inception_v3.SEInceptionV3(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
 
-def get_SEDenseNet_model(output_dir, img_rows=224, img_cols=224, channels=3, sedensenet_num=169):
-    """
-    SEDenseNet_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらDenseNetのデフォルトの224*224*3になる
-    sedensenet_num の数字で以下の種類のどれ使うか選ぶ. デフォルトはSEDenseNetImageNet169 にしておく
-    SEDenseNetImageNet121
-    SEDenseNetImageNet161
-    SEDenseNetImageNet169
-    SEDenseNetImageNet201
-    SEDenseNetImageNet264
-    SEDenseNetはソースコード変更している！！！！！（FC層のpoolingのコードをコメントアウトした）
-    """
-    model_path = os.path.join(output_dir, 'SEDenseNetImageNet'+str(sedensenet_num)+'.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # SEDenseNet のモデルはweights='imagenet'としてもimagenetの重みファイルロードしない？
-        if sedensenet_num == 121:
-            model = se_densenet.SEDenseNetImageNet121(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        elif sedensenet_num == 161:
-            model = se_densenet.SEDenseNetImageNet161(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        elif sedensenet_num == 169:
-            model = se_densenet.SEDenseNetImageNet169(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        elif sedensenet_num == 201:
-            model = se_densenet.SEDenseNetImageNet201(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        elif sedensenet_num == 264:
-            model = se_densenet.SEDenseNetImageNet264(weights='imagenet', include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
-    else:
-        model = load_model(model_path)
-    return model
+        if choice_model.lower() == 'seinceptionresnetv2':
+            model = se_inception_resnet_v2.SEInceptionResNetV2(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
 
-def get_SEResNext_model(output_dir, img_rows=224, img_cols=224, channels=3, seresnext_num=50):
-    """
-    SEResNext_modelダウンロード及びロード
-    入力層のサイズはオプション引数で指定可能。省略したらResNetのデフォルトの224*224*3になる
-    seresnext_num の数字で以下の種類のどれ使うか選ぶ. デフォルトは SEResNeXt-50 にしておく
-    """
-    model_path = os.path.join(output_dir, 'SEResNextImageNet'+str(seresnext_num)+'.h5py')
-    os.makedirs(output_dir, exist_ok=True)
-    if not os.path.exists(model_path):
-        # 入力層の数変更
-        input_tensor = Input(shape=(img_rows, img_cols, channels))
-        # SEResNext のモデルはweights='imagenet'としてもimagenetの重みファイルロードしない
-        if seresnext_num == 50:
-            model = se_resnext.SEResNextImageNet(weights='imagenet', depth=[3, 4, 6, 3], include_top=False, input_tensor=input_tensor)
-        elif seresnext_num == 101:
-            model = se_resnext.SEResNextImageNet(weights='imagenet', depth=[3, 4, 23, 3], include_top=False, input_tensor=input_tensor)
-        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
+        if choice_model.lower() == 'sedensenetimagenet':
+            print('sedensenet_num =', sedensenet_num)
+            if sedensenet_num == 121:
+                model = se_densenet.SEDenseNetImageNet121(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            elif sedensenet_num == 161:
+                model = se_densenet.SEDenseNetImageNet161(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            elif sedensenet_num == 169:
+                model = se_densenet.SEDenseNetImageNet169(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            elif sedensenet_num == 201:
+                model = se_densenet.SEDenseNetImageNet201(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            elif sedensenet_num == 264:
+                model = se_densenet.SEDenseNetImageNet264(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+
+        if choice_model.lower() == 'seresnext':
+            print('seresnext_num =', seresnext_num)
+            if seresnext_num == 50:
+                model = se_resnext.SEResNextImageNet(weights='imagenet', depth=[3, 4, 6, 3], include_top=is_include_top, input_tensor=input_tensor)
+            elif seresnext_num == 101:
+                model = se_resnext.SEResNextImageNet(weights='imagenet', depth=[3, 4, 23, 3], include_top=is_include_top, input_tensor=input_tensor)
+
+        if is_model_save:
+            model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     else:
-        model = load_model(model_path)
+        model = keras.models.load_model(model_path)
+
     return model
 
 def get_WideResNet_model(img_rows=32, img_cols=32, channels=3, num_classes=10, wrn_N=4, wrn_k=8, include_top=True):
@@ -387,6 +189,12 @@ def get_WideResNet_model(img_rows=32, img_cols=32, channels=3, num_classes=10, w
     　WRN-40-4のモデル(wrn_N = 6, wrn_k = 4)
     include_top=Falseで出力層なしにする
     """
+    # githubのWideResnetをimport
+    # https://github.com/titu1994/Wide-Residual-Networks
+    sys.path.append( str(current_dir) + '/../Git/Wide-Residual-Networks' )
+    import wide_residual_network as wrn
+    import wide_residual_network_include_top_false as wrn_top_false # 出力層消したの
+    print('wrn_N, wrn_k =', wrn_N, wrn_k)
     if include_top==True:
         model = wrn.create_wide_residual_network((img_rows, img_cols, channels), nb_classes=num_classes, N=wrn_N, k=wrn_k, dropout=0.0)
     else:
@@ -405,25 +213,40 @@ def get_OctConv_WideResNet_model(alpha=0.25, img_rows=32, img_cols=32, channels=
     論文ではα＝0.25
     WideResNetのデフォルトはWRN-28-10のモデル(wrn_N = 4, wrn_k = 10）
     """
+    # githubのWideResNet + OctConvをimport
+    # https://qiita.com/koshian2/items/0e40a5930f1aa63a66b9
+    sys.path.append( str(current_dir) + '/../Git/OctConv-TFKeras' )
+    #import models as oct_wrn
+    from oct_conv2d import OctConv2D # load_model(… custom_objects={'OctConv2D':OctConv2D}, compile=False) が必要
+    import models_include_top_false as oct_wrn_top_false # 出力層消したの
+    print('oct_conv_alpha, wrn_N, wrn_k =', alpha, wrn_N, wrn_k)
     model = oct_wrn_top_false.create_octconv_wide_resnet(alpha=alpha, N=wrn_N, k=wrn_k, input=(img_rows, img_cols, channels))
     return model
 
-def get_EfficientNet_model(input_shape=None, efficientnet_num=3, weights='imagenet'):
+def get_EfficientNet_model(output_dir:str, input_shape=None, efficientnet_num=3, is_keras=True, weights='imagenet', is_include_top=False, is_imagenet_model_save=True):
     """
     EfficientNet_modelロード
     入力層のサイズはオプション引数で指定可能。省略したら各EfficientNetのデフォルトのサイズにする
-    https://github.com/qubvel/efficientnet/blob/master/efficientnet/model.py より
+    https://github.com/qubvel/efficientnet より
                                         imagenet val set
-                                        @top1 acc	@top5 acc
-        EfficientNetB0 - (224, 224, 3)  0.7668	0.9312
-        EfficientNetB1 - (240, 240, 3)  0.7863	0.9418
-        EfficientNetB2 - (260, 260, 3)  0.7968	0.9475
-        EfficientNetB3 - (300, 300, 3)  0.8083	0.9531
-        EfficientNetB4 - (380, 380, 3)  0.8259	0.9612
-        EfficientNetB5 - (456, 456, 3)  0.8309	0.9646
-        EfficientNetB6 - (528, 528, 3)  20190619時点では、EfficientNetB4までしかimagenetの重みファイルない
-        EfficientNetB7 - (600, 600, 3)  20190619時点では、EfficientNetB4までしかimagenetの重みファイルない
+                                        @top1 acc
+        EfficientNetB0 - (224, 224, 3)  0.772
+        EfficientNetB1 - (240, 240, 3)  0.791
+        EfficientNetB2 - (260, 260, 3)  0.802
+        EfficientNetB3 - (300, 300, 3)  0.816
+        EfficientNetB4 - (380, 380, 3)  0.830
+        EfficientNetB5 - (456, 456, 3)  0.837
+        EfficientNetB6 - (528, 528, 3)  0.841
+        EfficientNetB7 - (600, 600, 3)  0.844
     """
+    # githubのEfficientNetをimport
+    sys.path.append( str(current_dir) + '/../Git/efficientnet' )
+    if is_keras:# kerasはこっち
+        from efficientnet.keras import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
+    else:# tfkerasはこっち
+        from efficientnet.tfkeras import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
+    model_path = os.path.join(output_dir, 'EfficientNetB'+str(efficientnet_num)+'.h5py')
+    os.makedirs(output_dir, exist_ok=True)
     print('EfficientNetB'+str(efficientnet_num))
     if input_shape == None:
         if efficientnet_num == 0:
@@ -442,27 +265,27 @@ def get_EfficientNet_model(input_shape=None, efficientnet_num=3, weights='imagen
             input_shape = (528, 528, 3)
         elif efficientnet_num == 7:
             input_shape = (600, 600, 3)
-    else:
-        input_tensor = input_shape
     print('input_shape:', input_shape)
     # レイヤーに独自関数(efficientnet.model.conv_kernel_initializer)を使っているためモデルファイル(.h5py)がmodel.load()できない。model.load_weight()はできる
     # 毎回imagenetのモデルファイルダウンロードする必要あり
     if efficientnet_num == 0:
-        model = EfficientNetB0(weights=weights, include_top=False, input_shape=input_shape)
+        model = EfficientNetB0(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 1:
-        model = EfficientNetB1(weights=weights, include_top=False, input_shape=input_shape)
+        model = EfficientNetB1(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 2:
-        model = EfficientNetB2(weights=weights, include_top=False, input_shape=input_shape)
+        model = EfficientNetB2(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 3:
-        model = EfficientNetB3(weights=weights, include_top=False, input_shape=input_shape)
+        model = EfficientNetB3(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 4:
-        model = EfficientNetB4(weights=weights, include_top=False, input_shape=input_shape)
+        model = EfficientNetB4(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 5:
-        model = EfficientNetB5(weights=weights, include_top=False, input_shape=input_shape)
+        model = EfficientNetB5(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 6:
-        model = EfficientNetB6(weights=None, include_top=False, input_shape=input_shape)
+        model = EfficientNetB6(weights=weights, include_top=is_include_top, input_shape=input_shape)
     elif efficientnet_num == 7:
-        model = EfficientNetB7(weights=None, include_top=False, input_shape=input_shape)
+        model = EfficientNetB7(weights=weights, include_top=is_include_top, input_shape=input_shape)
+    if is_imagenet_model_save:
+        model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     return model
 
 def get_Pelee_net(input_shape=(224,224,3), include_top=True, use_stem_block=True, num_classes=10):
@@ -476,11 +299,11 @@ def get_Pelee_net(input_shape=(224,224,3), include_top=True, use_stem_block=True
         Transition Layer:全体に1x1Convを掛けてダウンサンプリングするレイヤー
     Stem blockの有無は、入力解像度・出力解像度が変わる
     Stem blockありが本来のPeleeNetの構造。なしの場合は、いきなりDenseLayerに入る
-
     https://qiita.com/koshian2/items/187e240f478504079e7a
-
     imagenetの重みファイルはないので、h5pyファイル保存せず毎回アーキテクチャ作る
-    """
+    """# githubのPeleeNet
+    sys.path.append( str(current_dir) + '/../Git/PeleeNet-Keras' )
+    import pelee_net_keras
     if include_top == True:
         model = pelee_net_keras.PeleeNet(input_shape=input_shape
                                          , use_stem_block=use_stem_block
@@ -491,6 +314,141 @@ def get_Pelee_net(input_shape=(224,224,3), include_top=True, use_stem_block=True
                                          , include_top=include_top)
     return model
 
+def get_attention_ptmodel(num_classes, activation, base_pretrained_model=None, base_model_trainable=False):
+    """
+    imagenetの学習済みモデルにattentionレイヤーつける
+    https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook
+    Args:
+        base_pretrained_model: 出力層なしモデル
+                               from keras.applications.inception_v3 import InceptionV3 as PTModel
+                               base_pretrained_model = PTModel(input_tensor=keras.layers.Input((299,299,3)), include_top=False, weights='imagenet')
+                               とかでimagenetの学習済みモデルをimportしてPTModelを渡せばよい
+        shape: 入力層のサイズ.[331, 331, 3]とか.imagenetの学習済みモデル使うからchanel=3でないとエラーになる
+        num_classes: 出力層のサイズ.15とか
+        activation: 出力層の活性化関数.'sigmoid'とか
+        ptmodel_trainable: base_pretrained_modelの重み学習させるか.Trueなら学習させる
+    Returns:
+        imagenetの学習済みモデルのお尻にattentionレイヤーを付けたモデルオブジェクト
+    Usage:
+        num_classes = 10
+        activation = 'softmax'
+        model = define_model.get_EfficientNet_model("output_dir")
+        retina_model = define_model.get_attention_ptmodel(num_classes, activation, base_pretrained_model=model, base_model_trainable=False)
+    """
+    if base_pretrained_model is None:
+        in_lay = keras.layers.Input(shape=(299,299,3))
+        base_pretrained_model = keras.applications.inception_v3.InceptionV3(input_tensor=in_lay, include_top=False, weights='imagenet')
+        pt_features = base_pretrained_model(in_lay)
+    else:
+        shape = (base_pretrained_model.input_shape[1], base_pretrained_model.input_shape[2], base_pretrained_model.input_shape[3])
+        in_lay = keras.layers.Input(shape=shape)
+        pt_features = base_pretrained_model(in_lay)
+
+    base_pretrained_model.trainable = base_model_trainable
+    pt_depth = base_pretrained_model.get_output_shape_at(0)[-1]
+    bn_features = keras.layers.BatchNormalization()(pt_features)
+
+    # here we do an attention mechanism to turn pixels in the GAP on an off
+    attn_layer = keras.layers.Conv2D(64, kernel_size = (1,1), padding = 'same', activation = 'relu')(keras.layers.Dropout(0.5)(bn_features))
+    attn_layer = keras.layers.Conv2D(16, kernel_size = (1,1), padding = 'same', activation = 'relu')(attn_layer)
+    attn_layer = keras.layers.Conv2D(8, kernel_size = (1,1), padding = 'same', activation = 'relu')(attn_layer)
+    attn_layer = keras.layers.Conv2D(1,
+                        kernel_size = (1,1),
+                        padding = 'valid',
+                        activation = 'sigmoid')(attn_layer)
+    # ↑predictでattentionレイヤー可視化したいときはこの Conv2D(1 の層のoutputを可視化する。
+    # outputのshapeが(None, 14, 14, 1)になるので画像として可視化できる。
+    # 詳細は https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook 確認すること
+
+    # fan it out to all of the channels
+    up_c2_w = np.ones((1, 1, 1, pt_depth))
+    up_c2 = keras.layers.Conv2D(pt_depth, kernel_size = (1,1), padding = 'same',
+                   activation = 'linear', use_bias = False, weights = [up_c2_w])
+    up_c2.trainable = False
+    attn_layer = up_c2(attn_layer)
+    mask_features = keras.layers.multiply([attn_layer, bn_features])
+    gap_features = keras.layers.GlobalAveragePooling2D()(mask_features)
+    gap_mask = keras.layers.GlobalAveragePooling2D()(attn_layer)
+
+    # to account for missing values from the attention model
+    gap = keras.layers.Lambda(lambda x: x[0]/x[1], name = 'RescaleGAP')([gap_features, gap_mask])
+    gap_dr = keras.layers.Dropout(0.25)(gap)
+    dr_steps = keras.layers.Dropout(0.25)(keras.layers.Dense(128, activation = 'relu')(gap_dr))
+    out_layer = keras.layers.Dense(num_classes, activation = activation)(dr_steps)
+    retina_model = keras.models.Model(inputs = [in_lay], outputs = [out_layer])
+    retina_model.summary()
+
+    return retina_model
+
+def show_attention_layer(retina_model, Xs:np.ndarray, ys=np.array([]), output_dir=None):
+    """
+    attention layerのoutputを可視化して画像ファイルに保存する
+    https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook
+    Args;
+        retina_model:attention layer付けたモデル
+        Xs:4次元テンソルの入力画像複数
+        ys:Xsに対応するラベル
+        output_dir:attention map画像保存先ディレクトリ
+    Usage:
+        num_classes = 10
+        activation = 'softmax'
+        model = define_model.get_EfficientNet_model("output_dir")
+        retina_model = define_model.get_attention_ptmodel(num_classes, activation, base_pretrained_model=model, base_model_trainable=False)
+        from transformer import get_train_valid_test
+        jpg = r'horse.jpg'
+        X = get_train_valid_test.load_one_img(jpg, 100, 100)
+        y = np.array([7])
+        define_model.show_attention_layer(retina_model, X, y, output_dir=r'output_test\100x100')
+    """
+    import matplotlib.pyplot as plt
+
+    # get the attention layer since it is the only one with a single output dim
+    for attn_layer in retina_model.layers:
+        c_shape = attn_layer.get_output_shape_at(0)
+        if len(c_shape)==4:
+            if c_shape[-1]==1:
+                print(attn_layer)
+                break
+    # Xsからランダムに6枚だけ可視化する
+    rand_idx = np.random.choice(range(len(Xs)), size = 6)
+    attn_func = keras.backend.function(inputs = [retina_model.get_input_at(0), keras.backend.learning_phase()],
+               outputs = [attn_layer.get_output_at(0)]
+              )
+    if len(Xs) < 6:
+        figsize = (4, 16)
+    else:
+        figsize = (8, 4*len(rand_idx))
+    fig, m_axs = plt.subplots(len(rand_idx), 2, figsize = figsize)
+    [c_ax.axis('off') for c_ax in m_axs.flatten()]
+
+    count = 0
+    for c_idx, (img_ax, attn_ax) in zip(rand_idx, m_axs):
+        cur_img = Xs[c_idx:(c_idx+1)]
+        attn_img = attn_func([cur_img, 0])[0]
+        img_ax.imshow(np.clip(cur_img[0,:,:,:]*127+127, 0, 255).astype(np.uint8))
+        attn_ax.imshow(attn_img[0, :, :, 0]/attn_img[0, :, :, 0].max(), cmap = 'viridis',
+                       vmin = 0, vmax = 1,
+                       interpolation = 'lanczos')
+        if ys.shape != (0,):
+            real_cat = ys[c_idx]
+            img_ax.set_title('Cat:%2d' % (real_cat))
+        pred_cat = retina_model.predict(cur_img)
+        if ys.shape != (0,):
+            attn_ax.set_title('Attention Map\nPred:%2.2f%%' % (100*pred_cat[0,int(real_cat)]))
+        else:
+            pred_cat = [str((p*100).round(1)) for p in pred_cat[0]]
+            #pred_cat = ', '.join(pred_cat)
+            attn_ax.set_title('Attention Map\nPred%:'+str(pred_cat))
+
+        count += 1
+        if len(Xs) <= count:
+            break
+
+    if output_dir is not None:
+        fig.savefig(os.path.join(output_dir, 'attention_map.png'), dpi = 300)
+# --------------------------------------------------------------------------------------------------
+
+# ------------------------------------------ github optimizer ------------------------------------------
 def get_adabound(lr=0.001, final_lr=0.1, beta_1=0.9, beta_2=0.999, gamma=1e-3, epsilon=None, decay=0.0, amsbound=False, weight_decay=0.0):
     """
     githubのadaboundをimport
@@ -504,6 +462,10 @@ def get_adabound(lr=0.001, final_lr=0.1, beta_1=0.9, beta_2=0.999, gamma=1e-3, e
     from adabound import AdaBound
     model = keras.models.load_model(os.path.join(output_dir, 'finetuning.h5'), custom_objects={'AdaBound':AdaBound})
     """
+    # githubのAdaBoundをimport
+    # https://github.com/titu1994/keras-adabound
+    sys.path.append( str(current_dir) + '/../Git/keras-adabound' )
+    from adabound import AdaBound
     if 'adabound' in sys.modules.keys():
         return AdaBound(lr=lr, final_lr=final_lr, beta_1=beta_1, beta_2=beta_2, gamma=gamma, epsilon=epsilon, decay=decay, amsbound=amsbound, weight_decay=weight_decay)
     else:
@@ -524,69 +486,12 @@ def get_radam(learning_rate=0.001, beta_1=0.9, beta_2=0.999,
     from keras_radam import RAdam
     model = keras.models.load_model(os.path.join(output_dir, 'finetuning.h5'), custom_objects={'RAdam':RAdam})
     """
+    # githubのRAdamをimport
+    # https://github.com/CyberZHG/keras-radam
+    sys.path.append( str(current_dir) + '/../Git/keras-radam' )
+    from keras_radam import RAdam
     return RAdam(learning_rate=learning_rate, decay=decay, weight_decay=weight_decay, beta_1=beta_1, beta_2=beta_2, amsgrad=amsgrad, total_steps=total_steps, warmup_proportion=warmup_proportion, min_lr=min_lr)
-
-def get_attention_ptmodel(ptmodel, shape, num_classes, activation, ptmodel_trainable=False):
-    """
-    imagenetの学習済みモデルにattentionレイヤーつける
-    https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook
-    Args:
-        ptmodel: imagenetの学習済みモデル
-                 from keras.applications.inception_v3 import InceptionV3 as PTModel
-                 とかでimagenetの学習済みモデルをimportしてPTModelを渡せばよい
-        shape: 入力層のサイズ.[331, 331, 3]とか.imagenetの学習済みモデル使うからchanel=3でないとエラーになる
-        num_classes: 出力層のサイズ.15とか
-        activation: 出力層の活性化関数.'sigmoid'とか
-        ptmodel_trainable: ptmodelの重み学習させるか.Trueなら学習させる
-    Returns:
-        imagenetの学習済みモデルのお尻にattentionレイヤーを付けたモデルオブジェクト
-    Usage:
-        from keras.applications.inception_v3 import InceptionV3 as PTModel
-        retina_model = get_attention_ptmodel(PTModel, shape, num_classes, activation, ptmodel_trainable=True)
-    """
-    from keras.layers import GlobalAveragePooling2D, Dense, Dropout, Flatten, Input, Conv2D, multiply, Lambda
-    from keras.models import Model
-    from keras.layers import BatchNormalization
-
-    in_lay = Input(shape)
-    base_pretrained_model = PTModel(input_tensor=in_lay, include_top = False, weights = 'imagenet')
-    base_pretrained_model.trainable = ptmodel_trainable
-    pt_depth = base_pretrained_model.get_output_shape_at(0)[-1]
-    pt_features = base_pretrained_model(in_lay)
-    bn_features = BatchNormalization()(pt_features)
-
-    # here we do an attention mechanism to turn pixels in the GAP on an off
-    attn_layer = Conv2D(64, kernel_size = (1,1), padding = 'same', activation = 'relu')(Dropout(0.5)(bn_features))
-    attn_layer = Conv2D(16, kernel_size = (1,1), padding = 'same', activation = 'relu')(attn_layer)
-    attn_layer = Conv2D(8, kernel_size = (1,1), padding = 'same', activation = 'relu')(attn_layer)
-    attn_layer = Conv2D(1,
-                        kernel_size = (1,1),
-                        padding = 'valid',
-                        activation = 'sigmoid')(attn_layer)
-    # ↑predictでattentionレイヤー可視化したいときはこの Conv2D(1 の層のoutputを可視化する。
-    # outputのshapeが(None, 14, 14, 1)になるので画像として可視化できる。
-    # 詳細は https://www.kaggle.com/kmader/attention-inceptionv3-for-blindness/notebook 確認すること
-
-    # fan it out to all of the channels
-    up_c2_w = np.ones((1, 1, 1, pt_depth))
-    up_c2 = Conv2D(pt_depth, kernel_size = (1,1), padding = 'same',
-                   activation = 'linear', use_bias = False, weights = [up_c2_w])
-    up_c2.trainable = False
-    attn_layer = up_c2(attn_layer)
-    mask_features = multiply([attn_layer, bn_features])
-    gap_features = GlobalAveragePooling2D()(mask_features)
-    gap_mask = GlobalAveragePooling2D()(attn_layer)
-
-    # to account for missing values from the attention model
-    gap = Lambda(lambda x: x[0]/x[1], name = 'RescaleGAP')([gap_features, gap_mask])
-    gap_dr = Dropout(0.25)(gap)
-    dr_steps = Dropout(0.25)(Dense(128, activation = 'relu')(gap_dr))
-    out_layer = Dense(num_classes, activation = activation)(dr_steps)
-    retina_model = Model(inputs = [in_lay], outputs = [out_layer])
-    retina_model.summary()
-
-    return retina_model
-
+# --------------------------------------------------------------------------------------------------
 
 def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
                    , momentum=0.9, nesterov=True # SGD
@@ -597,7 +502,7 @@ def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
                   ):
     """
     オプティマイザを取得する
-    引数のchoice_optim は 'sgd', 'rmsprop', 'adagrad', 'adadelta', 'adam', 'adamax', 'nadam' のいずれかを指定する
+    引数のchoice_optim は 'sgd', 'rmsprop', 'adagrad', 'adadelta', 'adam', 'adamax', 'nadam', 'adabound', 'radam' のいずれかを指定する
     オプティマイザの学習率とlr_decayを変えれるようにする。指定しなければデフォルトの値が入る
     """
     print('---- choice_optim =', choice_optim, '----')
@@ -659,16 +564,15 @@ def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
         print('radam_lr radam_decay beta_1 beta_2, amsgrad total_steps warmup_proportion min_lr =', lr, decay, beta_1, beta_2, amsgrad, total_steps, warmup_proportion, min_lr)
     return optim
 
-
-def FC_batch_drop(x, activation='relu', dence=1024, dropout_rate=0.5, addBatchNorm=None, kernel_initializer='he_normal', l2_rate=1e-4, name=None):
+def FC_batch_drop(x, activation='relu', dence=1024, dropout_rate=0.5, is_add_batchnorm=False, kernel_initializer='he_normal', l2_rate=1e-4, name=None):
     """
     中間層の全結合1層（BatchNormalizationとDropout追加可能）
     Args:
         x: model.output
         activation: 活性化関数。デフォルトは'relu'
-        dence, dropout_rate: 各層のニューロンの数。デフォルトは1024としてる
+        dence, dropout_rate: 各層のnode数。デフォルトは1024としてる
         dropout_rate: dropout_rate(0<dropout_rate<1 の範囲出ないとエラーになる)。デフォルトは0.5としてる
-        addBatchNorm: BatchNormalization いれるか。デフォルトは入れない
+        is_add_batchnorm: BatchNormalization いれるか。デフォルトは入れない
         kernel_initializer:Denseレイヤーの重みの初期化 デフォルトをHe の正規分布('he_normal')としてる。
                            Denseのデフォルトglorot_uniform（Glorot（Xavier）の一様分布）にしたい場合は 'glorot_uniform' とすること
         l2_rate:l2正則化によるWeight decay入れるか。デフォルトは無し(1e-4)。kerasのマニュアルでは0.01とか使ってる。Deeptoxの4層では1e-04, 1e-05, 1e-06, 0にしてる
@@ -676,65 +580,19 @@ def FC_batch_drop(x, activation='relu', dence=1024, dropout_rate=0.5, addBatchNo
     Returns:
         全結合1層(x)
     """
-    x = Dense(dence, kernel_initializer=kernel_initializer, kernel_regularizer=regularizers.l2(l2_rate), name=name+'_dence')(x)
-    if addBatchNorm != None:
-        x = BatchNormalization(name=name+'_batchNormalization')(x)
-    x = Activation(activation)(x) # BatchNormalizationはDenseと活性化の間
+    x = keras.layers.Dense(dence, kernel_initializer=kernel_initializer, kernel_regularizer=keras.regularizers.l2(l2_rate), name=name+'_dence')(x)
+    if is_add_batchnorm == True:
+        x = keras.layers.BatchNormalization(name=name+'_batchNormalization')(x)
+    x = keras.layers.Activation(activation, name=name+'_act')(x) # BatchNormalizationはDenseと活性化の間
     if dropout_rate > 0:
-        x = Dropout(dropout_rate, name=name+'_dropout')(x)
-    print('dence dropout addBatchNorm kernel_initializer l2_rate =', dence, dropout_rate, addBatchNorm, kernel_initializer, l2_rate)
+        x = keras.layers.Dropout(dropout_rate, name=name+'_dropout')(x)
+    print('dence dropout is_add_batchnorm kernel_initializer l2_rate =', dence, dropout_rate, is_add_batchnorm, kernel_initializer, l2_rate)
     return x
 
-def FC_0_5_layer(x, FCnum
-                , Dence_1, Dropout_1, addBatchNorm_1, kernel_initializer_1, l2_rate_1
-                , Dence_2, Dropout_2, addBatchNorm_2, kernel_initializer_2, l2_rate_2
-                , Dence_3, Dropout_3, addBatchNorm_3, kernel_initializer_3, l2_rate_3
-                , Dence_4, Dropout_4, addBatchNorm_4, kernel_initializer_4, l2_rate_4
-                , Dence_5, Dropout_5, addBatchNorm_5, kernel_initializer_5, l2_rate_5
-                , name='FC'):
-    """
-    全結合0-5層構築
-    Args:
-        x: model.output
-        FCnum: 追加する層の数（5層まで追加できる） 1,2,3,4,5 のどれか指定する.それ以外の値入れると全結合層なし
-        name: 層の名前
-        Dence_n, Dropout_n, addBatchNorm_n, kernel_initializer_n, l2_rate_n: 各層のニューロンの数、dropout_rate、BatchNormalization いれるか、Denseレイヤーの重みの初期化、l2正則化によるWeight decay
-    Returns:
-        全結合0-5層(x)
-    """
-    print('----- FC_layer -----')
-    if FCnum == 1:
-        x = FC_batch_drop(x, activation='relu', dence=Dence_1, dropout_rate=Dropout_1, addBatchNorm=addBatchNorm_1, kernel_initializer=kernel_initializer_1, l2_rate=l2_rate_1, name=name+'1')
-    if FCnum == 2:
-        x = FC_batch_drop(x, activation='relu', dence=Dence_1, dropout_rate=Dropout_1, addBatchNorm=addBatchNorm_1, kernel_initializer=kernel_initializer_1, l2_rate=l2_rate_1, name=name+'1')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_2, dropout_rate=Dropout_2, addBatchNorm=addBatchNorm_2, kernel_initializer=kernel_initializer_2, l2_rate=l2_rate_2, name=name+'2')
-    if FCnum == 3:
-        x = FC_batch_drop(x, activation='relu', dence=Dence_1, dropout_rate=Dropout_1, addBatchNorm=addBatchNorm_1, kernel_initializer=kernel_initializer_1, l2_rate=l2_rate_1, name=name+'1')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_2, dropout_rate=Dropout_2, addBatchNorm=addBatchNorm_2, kernel_initializer=kernel_initializer_2, l2_rate=l2_rate_2, name=name+'2')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_3, dropout_rate=Dropout_3, addBatchNorm=addBatchNorm_3, kernel_initializer=kernel_initializer_3, l2_rate=l2_rate_3, name=name+'3')
-    if FCnum == 4:
-        x = FC_batch_drop(x, activation='relu', dence=Dence_1, dropout_rate=Dropout_1, addBatchNorm=addBatchNorm_1, kernel_initializer=kernel_initializer_1, l2_rate=l2_rate_1, name=name+'1')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_2, dropout_rate=Dropout_2, addBatchNorm=addBatchNorm_2, kernel_initializer=kernel_initializer_2, l2_rate=l2_rate_2, name=name+'2')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_3, dropout_rate=Dropout_3, addBatchNorm=addBatchNorm_3, kernel_initializer=kernel_initializer_3, l2_rate=l2_rate_3, name=name+'3')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_4, dropout_rate=Dropout_4, addBatchNorm=addBatchNorm_4, kernel_initializer=kernel_initializer_4, l2_rate=l2_rate_4, name=name+'4')
-    if FCnum == 5:
-        x = FC_batch_drop(x, activation='relu', dence=Dence_1, dropout_rate=Dropout_1, addBatchNorm=addBatchNorm_1, kernel_initializer=kernel_initializer_1, l2_rate=l2_rate_1, name=name+'1')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_2, dropout_rate=Dropout_2, addBatchNorm=addBatchNorm_2, kernel_initializer=kernel_initializer_2, l2_rate=l2_rate_2, name=name+'2')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_3, dropout_rate=Dropout_3, addBatchNorm=addBatchNorm_3, kernel_initializer=kernel_initializer_3, l2_rate=l2_rate_3, name=name+'3')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_4, dropout_rate=Dropout_4, addBatchNorm=addBatchNorm_4, kernel_initializer=kernel_initializer_4, l2_rate=l2_rate_4, name=name+'4')
-        x = FC_batch_drop(x, activation='relu', dence=Dence_5, dropout_rate=Dropout_5, addBatchNorm=addBatchNorm_5, kernel_initializer=kernel_initializer_5, l2_rate=l2_rate_5, name=name+'5')
-    return x
-
-def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
-                            , choice_model
+def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes, choice_model
                             , trainable='all'
-                            , FCnum=0# 1,2,3,4,5
-                            , FCpool='GlobalAveragePooling2D'
-                            , Dence_1=1024, Dropout_1=0.5, addBatchNorm_1=None, kernel_initializer_1='he_normal', l2_rate_1=1e-4
-                            , Dence_2=512, Dropout_2=0.5, addBatchNorm_2=None, kernel_initializer_2='he_normal', l2_rate_2=1e-4
-                            , Dence_3=256, Dropout_3=0.5, addBatchNorm_3=None, kernel_initializer_3='he_normal', l2_rate_3=1e-4
-                            , Dence_4=128, Dropout_4=0.5, addBatchNorm_4=None, kernel_initializer_4='he_normal', l2_rate_4=1e-4
-                            , Dence_5=64, Dropout_5=0.5, addBatchNorm_5=None, kernel_initializer_5='he_normal', l2_rate_5=1e-4
+                            , fcpool='GlobalAveragePooling2D'
+                            , fcs=[], drop=0.5, is_add_batchnorm=None, kernel_init='he_normal', l2_rate=1e-4
                             , pred_kernel_initializer='zeros', pred_l2_rate=1e-4
                             , activation='softmax'#'sigmoid'
                             , gpu_count=1
@@ -746,102 +604,127 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
                             , wrn_N=4, wrn_k=10 # WideResNetの引数
                             , oct_conv_alpha=0.25 # OctConv_WideResNet の低周波と高周波のチャンネル数の割り振り具合であるα
                             , efficientnet_num=3 # EfficientNet の種類指定 0,1,2,3,4,5,6,7 のいずれかしかだめ
+                            , is_keras=True # EfficientNet keras版を使うか
+                            , is_base_model_trainable=True # attentionモデルのベースモデルの重み更新するか
+                            , n_multitask=1, multitask_pred_n_node=2
+                            , is_imagenet_model_save=True
                             ):
     """
     fine-tuningなど設定したモデルを返す
     オプティマイザの引数入れたくないのでコンパイルはしない
     マルチGPU対応あり gpu_count>1 なら return でマルチじゃないオリジナルのモデルとマルチGPUモデルを返す
+    Args:
+        output_dir:出力ディレクトリ
+        img_rows, img_cols, channels:モデルの入力サイズ
+        num_classes:クラス数
+        choice_model:fine-tuningするVGG16などimagenetのモデル名
+        trainable:どの層番号までパラメータフリーズするか。'all'なら全層更新
+        fcpool:全結合層の直前に入れるpooling
+        fcs:全結合層のnode数リスト
+        drop:全結合層のdropout rate
+        is_add_batchnorm:全結合層にBatchNormalization いれるか
+        kernel_init:全結合層の重み初期値
+        l2_rate:全結合層のl2正則化
+        pred_kernel_initializer:出力層の重み初期値
+        pred_l2_rate:出力層のl2正則化
+        activation:出力層の活性化関数
+        gpu_count:使うGPUの数。2以上ならマルチGPUでtrain
+        skip_bn:BatchNormalizationだけは必ず重み更新するか
+        n_multitask:タスク数。2以上なら全結合層を分岐させてマルチタスクにする
+        multitask_pred_n_node:マルチタスクの各タスクの出力層のnode数
+        is_imagenet_model_save:imagenetのmodelファイル保存するか
+    Returns
+        model:マルチGPU用モデルオブジェクト。引数のgpu_count=1ならorig_modelと同じもの
+        orig_model:シングルGPU用モデルオブジェクト
     """
     print('----- model_param -----')
     print('output_dir =', output_dir)
     print('img_rows img_cols channels =', img_rows, img_cols, channels)
     print('num_classes =', num_classes)
     print('choice_model trainable =', choice_model, trainable)
-    print('FCnum =', FCnum)
-    print('FCpool =', FCpool)
+    print('fcs =', str(fcs))
+    print('fcpool =', fcpool)
     print('pred_kernel_initializer pred_l2_rate =', pred_kernel_initializer, pred_l2_rate)
     print('activation =', activation)
     print('gpu_count =', gpu_count)
     print('skip_bn =', skip_bn)
+    print('n_multitask =', n_multitask)
 
-    trained_model = ''
-    if choice_model == 'VGG16':
-        trained_model = get_VGG16_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 15
-    elif choice_model == 'ResNet50':
-        trained_model = get_ResNet50_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 164
-    elif choice_model == 'InceptionV3':
-        trained_model = get_InceptionV3_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 249
-    elif choice_model == 'Xception':
-        trained_model = get_Xception_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 116
-    elif choice_model == 'InceptionResNetV2':
-        trained_model = get_InceptionResNetV2_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 761
-    elif choice_model == 'MobileNet':
-        trained_model = get_MobileNet_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'MobileNetV2':
-        trained_model = get_MobileNetV2_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'NASNetLarge':
-        trained_model = get_NASNetLarge_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
+    # imagenetモデル
+    if choice_model in ['VGG16', 'ResNet50', 'InceptionV3', 'Xception', 'InceptionResNetV2', 'MobileNet', 'MobileNetV2', 'NASNetLarge']:
+        trained_model = get_imagenet_model(output_dir, choice_model, img_rows, img_cols, channels=channels
+                                            , is_imagenet_model_save=is_imagenet_model_save)
     elif choice_model == 'SEResNet':
-        print('seresnet_num =', seresnet_num)
-        trained_model = get_SEResNet_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels, seresnet_num=seresnet_num)
-    elif choice_model == 'SEInceptionV3':
-        trained_model = get_SEInceptionV3_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'SEInceptionResNetV2':
-        trained_model = get_SEInceptionResNetV2_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'SEDenseNet':
-        print('sedensenet_num =', sedensenet_num)
-        trained_model = get_SEDenseNet_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels, sedensenet_num=sedensenet_num)
-    elif choice_model == 'SEResNext':
-        print('seresnext_num =', seresnext_num)
-        trained_model = get_SEResNext_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels, seresnext_num=seresnext_num)
+        trained_model = get_SENet_model(output_dir, choice_model, img_rows=img_rows, img_cols=img_cols, channels=channels
+                                        , seresnet_num=seresnet_num, sedensenet_num=sedensenet_num, seresnext_num=seresnext_num
+                                        , is_model_save=is_imagenet_model_save)
     elif choice_model == 'WideResNet':
-        print('wrn_N, wrn_k =', wrn_N, wrn_k)
-        trained_model = get_WideResNet_model(img_rows=img_rows, img_cols=img_cols, channels=channels, num_classes=num_classes, wrn_N=wrn_N, wrn_k=wrn_k, include_top=False)
+        trained_model = get_WideResNet_model(img_rows=img_rows, img_cols=img_cols, channels=channels
+                                            , num_classes=num_classes
+                                            , wrn_N=wrn_N, wrn_k=wrn_k, include_top=False)
     elif choice_model == 'OctConv_WideResNet':
-        print('oct_conv_alpha, wrn_N, wrn_k =', oct_conv_alpha, wrn_N, wrn_k)
-        trained_model = get_OctConv_WideResNet_model(alpha=oct_conv_alpha, img_rows=img_rows, img_cols=img_cols, channels=channels, wrn_N=wrn_N, wrn_k=wrn_k)
+        trained_model = get_OctConv_WideResNet_model(alpha=oct_conv_alpha, img_rows=img_rows, img_cols=img_cols, channels=channels
+                                                    , wrn_N=wrn_N, wrn_k=wrn_k)
     elif choice_model == 'EfficientNet':
         if (img_rows is None) and (img_cols is None) and (channels is None):
-            trained_model = get_EfficientNet_model(input_shape=None, efficientnet_num=efficientnet_num, weights='imagenet')
+            trained_model = get_EfficientNet_model(output_dir, input_shape=None
+                                                    , efficientnet_num=efficientnet_num, is_imagenet_model_save=is_imagenet_model_save)
         else:
-            trained_model = get_EfficientNet_model(input_shape=(img_rows,img_cols,channels), efficientnet_num=efficientnet_num, weights='imagenet')
+            trained_model = get_EfficientNet_model(output_dir, input_shape=(img_rows,img_cols,channels)
+                                                    , efficientnet_num=efficientnet_num, is_imagenet_model_save=is_imagenet_model_save)
     elif choice_model == 'PeleeNet':
             trained_model = get_Pelee_net(input_shape=(img_rows,img_cols,channels), include_top=False)
-
     #print(trained_model.summary())
 
-    x = trained_model.output
-    # SE block つける
-    if add_se==True:
-        print('add_se =', add_se)
-        x = se.squeeze_excite_block(x)
-    # 学習済みモデルのpooling指定
-    if FCpool=='GlobalAveragePooling2D':
-        x = GlobalAveragePooling2D(name='FC_avg')(x)
-    elif FCpool=='GlobalMaxPooling2D':
-        x = GlobalMaxPooling2D(name='FC_max')(x)
-    # 全結合0-5層構築
-    x = FC_0_5_layer(x, FCnum
-                        , Dence_1, Dropout_1, addBatchNorm_1, kernel_initializer_1, l2_rate_1
-                        , Dence_2, Dropout_2, addBatchNorm_2, kernel_initializer_2, l2_rate_2
-                        , Dence_3, Dropout_3, addBatchNorm_3, kernel_initializer_3, l2_rate_3
-                        , Dence_4, Dropout_4, addBatchNorm_4, kernel_initializer_4, l2_rate_4
-                        , Dence_5, Dropout_5, addBatchNorm_5, kernel_initializer_5, l2_rate_5
-                        , name='FC')
-    # 出力層構築
-    # 出力層のkernel_initializerとかは下山さんのコードまねた
-    predictions = Dense(num_classes, activation=activation
-                        , kernel_initializer=pred_kernel_initializer
-                        , kernel_regularizer=regularizers.l2(pred_l2_rate)
-                        , name='pred')(x)
+    # attensionレイヤー付けるor全結合多層にするか
+    if fcpool=='attention':
+        model = get_attention_ptmodel(num_classes, activation, base_pretrained_model=trained_model, base_model_trainable=is_base_model_trainable)
+    else:
+        x = trained_model.output
+        # 学習済みモデルのpooling指定
+        if fcpool=='GlobalAveragePooling2D':
+            x = keras.layers.GlobalAveragePooling2D(name='FC_avg')(x)
+        elif fcpool=='GlobalMaxPooling2D':
+            x = keras.layers.GlobalMaxPooling2D(name='FC_max')(x)
+        print('----- FC_layers -----')
+        if n_multitask == 1:
+            # マルチクラス/マルチラベルの全結合層+出力層
+            # 全結合層
+            for i, den in enumerate(fcs):
+                x = FC_batch_drop(x, activation='relu'
+                                , dence=den
+                                , dropout_rate=drop
+                                , is_add_batchnorm=is_add_batchnorm
+                                , kernel_initializer=kernel_init
+                                , l2_rate=l2_rate
+                                , name='FC'+str(i))
+            # 出力層
+            predictions = keras.layers.Dense(num_classes, activation=activation
+                                , kernel_initializer=pred_kernel_initializer
+                                , kernel_regularizer=keras.regularizers.l2(pred_l2_rate)
+                                , name='pred')(x)
+        else:
+            # マルチタスクの全結合層+出力層
+            predictions = []
+            for n_task in range(n_multitask):
+                task_x = x
+                # 全結合層
+                for i, den in enumerate(fcs):
+                    task_x = FC_batch_drop(task_x, activation='relu'
+                                            , dence=den
+                                            , dropout_rate=drop
+                                            , is_add_batchnorm=is_add_batchnorm
+                                            , kernel_initializer=kernel_init
+                                            , l2_rate=l2_rate
+                                            , name='task'+str(n_task)+'_FC'+str(i))
+                # 出力層
+                task_x = keras.layers.Dense(multitask_pred_n_node, activation=activation
+                                , kernel_initializer=pred_kernel_initializer
+                                , kernel_regularizer=keras.regularizers.l2(pred_l2_rate)
+                                , name='task'+str(n_task)+'_pred')(task_x)
+                predictions.append(task_x)
 
-    # 全結合層を削除したimagenetのtrainedモデルと構築した全結合層を結合
-    model = Model(inputs=trained_model.input, outputs=predictions)
+        model = keras.models.Model(inputs=trained_model.input, outputs=predictions)
 
     if trainable == 'all':
         # 全レイヤーアンフリーズにする（全ての重みを再学習させる）
@@ -878,169 +761,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
     orig_model = model
     if gpu_count > 1:
         # マルチGPU http://tech.wonderpla.net/entry/2018/01/09/110000
-        model = multi_gpu_model(model, gpus=gpu_count)
-
-    # モデルの構造保存
-    save_architecture(orig_model, output_dir)
-
-    return model, orig_model
-
-
-def get_12branch_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes
-                            , choice_model
-                            , trainable='all'
-                            , FCnum=0# 1,2,3,4,5
-                            , FCpool='GlobalAveragePooling2D'
-                            , Dence_1=1024, Dropout_1=0.5, addBatchNorm_1=None, kernel_initializer_1='he_normal', l2_rate_1=1e-4
-                            , Dence_2=512, Dropout_2=0.5, addBatchNorm_2=None, kernel_initializer_2='he_normal', l2_rate_2=1e-4
-                            , Dence_3=256, Dropout_3=0.5, addBatchNorm_3=None, kernel_initializer_3='he_normal', l2_rate_3=1e-4
-                            , Dence_4=128, Dropout_4=0.5, addBatchNorm_4=None, kernel_initializer_4='he_normal', l2_rate_4=1e-4
-                            , Dence_5=64, Dropout_5=0.5, addBatchNorm_5=None, kernel_initializer_5='he_normal', l2_rate_5=1e-4
-                            , pred_kernel_initializer='zeros', pred_l2_rate=1e-4
-                            , activation='softmax'#'sigmoid'
-                            , gpu_count=1
-                            , skip_bn=True
-                            , seresnet_num=154 # SEResNet の種類指定 18,34,50,101,154 のいずれかしかだめ
-                            , sedensenet_num=169 # SEDenseNet の種類指定 121,161,169,201,264 のいずれかしかだめ
-                            , seresnext_num=50 # SEResNext の種類指定 50,101 のいずれかしかだめ
-                            , add_se=False # FC層の前にSE block つけるか
-                            , wrn_N=4, wrn_k=10 # WideResNetの引数
-                            , oct_conv_alpha=0.25 # OctConv_WideResNet の低周波と高周波のチャンネル数の割り振り具合であるα
-                            , efficientnet_num=3 # EfficientNet の種類指定 0,1,2,3,4,5,6,7 のいずれかしかだめ
-                            ):
-    """
-    全結合層12個に分岐し、fine-tuning設定したモデルを返す
-    オプティマイザの引数入れたくないのでコンパイルはしない
-    マルチGPU対応あり gpu_count>1 なら return でマルチじゃないオリジナルのモデルとマルチGPUモデルを返す
-    """
-    print('----- model_param -----')
-    print('output_dir =', output_dir)
-    print('img_rows img_cols channels =', img_rows, img_cols, channels)
-    print('num_classes =', num_classes)
-    print('choice_model trainable =', choice_model, trainable)
-    print('FCnum =', FCnum)
-    print('FCpool =', FCpool)
-    print('pred_kernel_initializer pred_l2_rate =', pred_kernel_initializer, pred_l2_rate)
-    print('activation =', activation)
-    print('gpu_count =', gpu_count)
-    print('skip_bn =', skip_bn)
-
-    trained_model = ''
-    if choice_model == 'VGG16':
-        trained_model = get_VGG16_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 15
-    elif choice_model == 'ResNet50':
-        trained_model = get_ResNet50_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 164
-    elif choice_model == 'InceptionV3':
-        trained_model = get_InceptionV3_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 249
-    elif choice_model == 'Xception':
-        trained_model = get_Xception_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 116
-    elif choice_model == 'InceptionResNetV2':
-        trained_model = get_InceptionResNetV2_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-        # trainable == 761
-    elif choice_model == 'MobileNet':
-        trained_model = get_MobileNet_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'MobileNetV2':
-        trained_model = get_MobileNetV2_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'NASNetLarge':
-        trained_model = get_NASNetLarge_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'SEResNet':
-        print('seresnet_num =', seresnet_num)
-        trained_model = get_SEResNet_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels, seresnet_num=seresnet_num)
-    elif choice_model == 'SEInceptionV3':
-        trained_model = get_SEInceptionV3_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'SEInceptionResNetV2':
-        trained_model = get_SEInceptionResNetV2_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels)
-    elif choice_model == 'SEDenseNet':
-        print('sedensenet_num =', sedensenet_num)
-        trained_model = get_SEDenseNet_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels, sedensenet_num=sedensenet_num)
-    elif choice_model == 'SEResNext':
-        print('seresnext_num =', seresnext_num)
-        trained_model = get_SEResNext_model(output_dir, img_rows=img_rows, img_cols=img_cols, channels=channels, seresnext_num=seresnext_num)
-    elif choice_model == 'WideResNet':
-        print('wrn_N, wrn_k =', wrn_N, wrn_k)
-        trained_model = get_WideResNet_model(img_rows=img_rows, img_cols=img_cols, channels=channels, num_classes=num_classes, wrn_N=wrn_N, wrn_k=wrn_k, include_top=False)
-    elif choice_model == 'OctConv_WideResNet':
-        print('oct_conv_alpha, wrn_N, wrn_k =', oct_conv_alpha, wrn_N, wrn_k)
-        trained_model = get_OctConv_WideResNet_model(alpha=oct_conv_alpha, img_rows=img_rows, img_cols=img_cols, channels=channels, wrn_N=wrn_N, wrn_k=wrn_k)
-    elif choice_model == 'EfficientNet':
-        if (img_rows is None) and (img_cols is None) and (channels is None):
-            trained_model = get_EfficientNet_model(input_shape=None, efficientnet_num=efficientnet_num, weights='imagenet')
-        else:
-            trained_model = get_EfficientNet_model(input_shape=(img_rows,img_cols,channels), efficientnet_num=efficientnet_num, weights='imagenet')
-    elif choice_model == 'PeleeNet':
-            trained_model = get_Pelee_net(input_shape=(img_rows,img_cols,channels), include_top=False)
-    #print(trained_model.summary())
-
-    x = trained_model.output
-    # 学習済みモデルのpooling指定
-    if FCpool=='GlobalAveragePooling2D':
-        x = GlobalAveragePooling2D(name='FC_avg')(x)
-    elif FCpool=='GlobalMaxPooling2D':
-        x = GlobalMaxPooling2D(name='FC_max')(x)
-    # マルチタスクの全結合層+出力層構築
-    predictions = []
-    for i in range(num_classes):
-        task_x = FC_0_5_layer(x, FCnum
-                            , Dence_1, Dropout_1, addBatchNorm_1, kernel_initializer_1, l2_rate_1
-                            , Dence_2, Dropout_2, addBatchNorm_2, kernel_initializer_2, l2_rate_2
-                            , Dence_3, Dropout_3, addBatchNorm_3, kernel_initializer_3, l2_rate_3
-                            , Dence_4, Dropout_4, addBatchNorm_4, kernel_initializer_4, l2_rate_4
-                            , Dence_5, Dropout_5, addBatchNorm_5, kernel_initializer_5, l2_rate_5
-                            , name='task'+str(i)+'_FC')
-        task_x = Dense(1, activation=activation
-                            , kernel_initializer=pred_kernel_initializer
-                            , kernel_regularizer=regularizers.l2(pred_l2_rate)
-                            , name='task'+str(i)+'_pred')(task_x)
-        predictions.append(task_x)
-
-    # 全結合層を削除したimagenetのtrainedモデルと構築した全結合層を結合
-    model = Model(inputs=trained_model.input, outputs=predictions)
-
-    if trainable == 'all':
-        # 全レイヤーアンフリーズにする（全ての重みを再学習させる）
-        for layer in model.layers:
-            layer.trainable = True
-    elif trainable == 0:
-        # 全レイヤーフリーズ（重み学習させない）
-        for layer in model.layers:
-            # BatchNormalizationだけは重み学習 下山さんコードより
-            if skip_bn and isinstance(layer, keras.layers.BatchNormalization):
-                layer.trainable = True
-            else:
-                layer.trainable = False
-    else:
-        # Fine-tuning 特定のレイヤまでfine-tuning
-        for layer in model.layers[:trainable]:
-            # BatchNormalizationだけは重み学習 下山さんコードより
-            if skip_bn and isinstance(layer, keras.layers.BatchNormalization):
-                layer.trainable = True
-            else:
-                layer.trainable = False
-        for layer in model.layers[trainable:]:
-            layer.trainable = True
-
-    # train layer 確認
-    #for layer in model.layers:
-    #    print(layer.trainable)
-    # モデル情報表示
-    #model.summary()
-    # finetunning用にレイヤーの数と名前を表示
-    #count= 0
-    #for layer in model.layers:
-    #    print(count, layer.name)
-    #    count+=1
-    # モデル描画
-    #keras.utils.plot_model(model, to_file = os.path.join(output_dir, 'model.svg'))
-
-    # マルチじゃないオリジナルのモデル確保 https://github.com/keras-team/keras/issues/8649
-    orig_model = model
-    if gpu_count > 1:
-        # マルチGPU http://tech.wonderpla.net/entry/2018/01/09/110000
-        model = multi_gpu_model(model, gpus=gpu_count)
+        model = keras.utils.multi_gpu_model(model, gpus=gpu_count)
 
     # モデルの構造保存
     save_architecture(orig_model, output_dir)
@@ -1055,14 +776,10 @@ def change_l2_softmax_net(model, alpha=16):
         https://copypaste-ds.hatenablog.com/entry/2019/03/01/164155
         https://medium.com/syncedreview/l2-constrained-softmax-loss-for-discriminative-face-verification-7cee8e6e9f8f
     """
-    from keras.models import Model
-    from keras.layers import Lambda
-    from keras import backend as K
-
     x = model.layers[-2].output
-    x = Lambda(lambda x: alpha*K.l2_normalize(x, axis=-1), name='l2_soft')(x) # L2ノルムで割って定数倍
+    x = keras.layers.Lambda(lambda x: alpha*keras.backend.l2_normalize(x, axis=-1), name='l2_soft')(x) # L2ノルムで割って定数倍
     predictions = model.layers[-1](x)
-    model = Model(inputs=model.input, outputs=predictions)
+    model = keras.models.Model(inputs=model.input, outputs=predictions)
     return model
 
 def load_json_weight(weight_file, architecture_file):
@@ -1071,7 +788,7 @@ def load_json_weight(weight_file, architecture_file):
     オプティマイザの引数入れたくないのでコンパイルはしない
     """
     # モデルのネットワークロード
-    model = model_from_json(open(architecture_file).read())
+    model = keras.models.model_from_json(open(architecture_file).read())
     # モデルの重みをロード
     model.load_weights(weight_file)
     return model
@@ -1081,11 +798,21 @@ def load_model_file(weight_file, compile=False):
     ファイルからモデルをロード
     オプティマイザの引数入れたくないのでコンパイルはしない
     """
-    # モデルをロード
-    model = load_model(weight_file, compile=compile)
-    return model
+    return keras.models.load_model(weight_file, compile=compile)
 
-if __name__ == '__main__':
-    print('define_model.py: loaded as script file')
-else:
-    print('define_model.py: loaded as module file')
+def print_model_summary(model):
+    """
+    modelのサマリーとmodelのレイヤー名とid番号をprintする
+    Args:
+        model:モデルオブジェクト
+    """
+    model.summary()
+    # 各レイヤーのid, 名前, 重み更新するか をprint
+    print('<id> <layer.name> <layer.trainable>' )
+    for i, layer in enumerate(model.layers):
+        print(i, layer.name, layer.trainable)
+        w = model.layers[i].get_weights()
+        # cnnカーネル（フィルター）のサイズもprint
+        if len(w) == 2:
+            weights, bias = w
+            print('    weights.shape:'+str(weights.shape))

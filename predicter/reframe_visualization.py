@@ -29,8 +29,6 @@ import matplotlib
 matplotlib.use('Agg')
 
 import keras
-from keras import backend as K
-from keras.preprocessing import image
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
@@ -42,15 +40,15 @@ def get_features(model, layer_id, X):
     """ model順伝搬してlayer_idのfeatures取得 """
     layer = model.layers[layer_id]
     # 中間層の特徴マップを返す関数を作成
-    get_feature_map = K.function(inputs=[model.input, K.learning_phase()], outputs=[layer.output])
+    get_feature_map = keras.backend.function(inputs=[model.input, keras.backend.learning_phase()], outputs=[layer.output])
     # 順伝搬して畳み込み層の特徴マップを取得する。
     features, = get_feature_map([X, False])
     return features
 
 def load_one_img(img_file_path, img_rows=331, img_cols=331):
     """画像を1枚読み込んで、4次元テンソル(1, img_rows, img_cols, 3)へ変換+前処理"""
-    img = image.load_img(img_file_path, target_size=(img_rows, img_cols))# 画像ロード
-    x = image.img_to_array(img)# ロードした画像をarray型に変換
+    img = keras.preprocessing.image.load_img(img_file_path, target_size=(img_rows, img_cols))# 画像ロード
+    x = keras.preprocessing.image.img_to_array(img)# ロードした画像をarray型に変換
     x = np.expand_dims(x, axis=0)# 4次元テンソルへ変換
     x = x.astype('float32')
     # 学習時にImageDataGeneratorのrescaleで正規化したので同じ処理が必要！ これを忘れると結果がおかしくなるので注意

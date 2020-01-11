@@ -1,11 +1,12 @@
-#!/home/bioinfo/.conda/envs/txm/bin/python
 # -*- coding: UTF-8 -*-
-__author__ = 'tmp04415'
-import sys
-import os
+"""
+tsvファイルの統計値取得するコマンドラインモジュール
+Usage:
+    $ python tsv_summary.py <input files. (csv, tsv etc.)> --out out.scv
+"""
+#__author__ = 'tmp04415'
+import os, sys, argparse
 import pandas as pd
-import argparse
-
 
 def describe(file_path, sep='\t', header='infer', nb_sample=10):
     print("INFO: load file [{}]".format(file_path))

@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
+"""
+iPhoneの画像ディレクトリpredict用コマンドラインスクリプト
+Usage:
+    $ cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\predicter
+    $ activate tfgpu_py36_v3
+    (tfgpu_py36_v3)$ python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-06 -i D:\iPhone_pictures\2019-06
+"""
 
-# iPhoneの画像ディレクトリpredict用コマンドラインスクリプト
-# $ cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\predicter
-# $ activate tfgpu_py36_v3
-# (tfgpu_py36_v3)$ python output_pred_dir_cp.py -o D:\work\keras_iPhone_pictures\01_classes_results_tfgpu_py36\20190531\train_all\prediction_cp_img\2019-06 -i D:\iPhone_pictures\2019-06
-
-import os, sys
-import argparse
+import os, sys, argparse, shutil
 import matplotlib
 matplotlib.use('Agg')
-import keras
-import shutil
 from tqdm import tqdm
+
+import keras
 
 # 自作モジュールimport
 import pathlib
@@ -67,7 +68,6 @@ def main():
             out_dir = os.path.join(args['merge_dir'], pathlib.Path(p).parent.name)
             os.makedirs(out_dir, exist_ok=True)
             shutil.copyfile(p, os.path.join(out_dir, str(pathlib.Path(p).parent.parent.name +'_'+ pathlib.Path(p).name)))
-
 
 if __name__ == '__main__':
     main()
