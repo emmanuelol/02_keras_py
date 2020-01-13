@@ -13,7 +13,7 @@ current_dir = pathlib.Path(__file__).resolve().parent # このファイルのデ
 sys.path.append( str(current_dir) + '/../Git/Augmentor' )
 import Augmentor
 
-def make_pipeline(input_dir=None, output_dir='../Augmentor_output'
+def make_pipeline(input_dir=None, output_dir='/Augmentor_output/'
                   , input_width=331, input_height=331
                   , rotate90=0.0, rotate180=0.0, rotate270=0.0, rotate_prob=0.0, rotate_max_left=20, rotate_max_right=20
                   , crop_prob=0.0, crop_area=0.8

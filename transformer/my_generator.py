@@ -53,10 +53,10 @@ from transformer import ndimage, my_image
 
 ## imgaug は["scipy", "scikit-image>=0.11.0", "numpy>=1.15.0", "six", "imageio", "Pillow", "matplotlib","Shapely", "opencv-python"] の依存ライブラリ必要
 #sys.path.append( str(current_dir) + '/../Git/imgaug' )
-#import imgaug
+import imgaug
 ## albumentations はimgaug をimport しておかないとimport できない
 #sys.path.append( str(current_dir) + '/../Git/albumentations' )
-#import albumentations
+import albumentations
 
 sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
 from keras_preprocessing.image import ImageDataGenerator
