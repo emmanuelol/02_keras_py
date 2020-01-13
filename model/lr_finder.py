@@ -1,9 +1,26 @@
 # -*- coding: utf-8 -*-
+import os
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import tempfile
 
 import keras
+
+def run(model, gen, batch_size:int, steps_per_epoch:int, output_dir='./'):
+    """
+    modelとトレーニングデータからLearningRateFinder実行する
+    引数のgenがトレーニングデータ（NumPy配列またはflow済みImageDataGenerator）
+    """
+    lrf = LearningRateFinder(model)
+    lrf.find(gen
+            , 1e-10, 1e+1 # 最小最大学習率
+            , stepsPerEpoch=steps_per_epoch
+            , batchSize=batch_size)
+    lrs, losses = lrf.plot_loss()
+    plt.savefig(os.path.join(output_dir,'lrfind_plot.jpg'))
+    df_lrs = pd.DataFrame({'lrs':lrs, 'losses':losses})
+    df_lrs.to_csv(os.path.join(output_dir,'lrfinder.tsv'), sep='\t', index=False)
 
 class LearningRateFinder:
     """
