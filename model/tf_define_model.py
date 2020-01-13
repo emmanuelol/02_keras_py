@@ -499,6 +499,7 @@ def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
                    , adadelta_rho=0.95 # Adadelta
                    , beta_1=0.9, beta_2=0.999, amsgrad=False # Adam, Adamax, Nadam
                    , total_steps=0, warmup_proportion=0.1, min_lr=0 # RAdam
+                   , *args, **kwargs
                   ):
     """
     オプティマイザを取得する
@@ -600,7 +601,6 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
                             , seresnet_num=154 # SEResNet の種類指定 18,34,50,101,154 のいずれかしかだめ
                             , sedensenet_num=169 # SEDenseNet の種類指定 121,161,169,201,264 のいずれかしかだめ
                             , seresnext_num=50 # SEResNext の種類指定 50,101 のいずれかしかだめ
-                            , add_se=False # FC層の前にSE block つけるか
                             , wrn_N=4, wrn_k=10 # WideResNetの引数
                             , oct_conv_alpha=0.25 # OctConv_WideResNet の低周波と高周波のチャンネル数の割り振り具合であるα
                             , efficientnet_num=3 # EfficientNet の種類指定 0,1,2,3,4,5,6,7 のいずれかしかだめ
@@ -608,6 +608,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
                             , is_base_model_trainable=True # attentionモデルのベースモデルの重み更新するか
                             , n_multitask=1, multitask_pred_n_node=2
                             , is_imagenet_model_save=True
+                            , *args, **kwargs
                             ):
     """
     fine-tuningなど設定したモデルを返す

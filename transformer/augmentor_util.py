@@ -27,7 +27,10 @@ def make_pipeline(input_dir=None, output_dir='/Augmentor_output/'
                   , random_dist_prob=0.0, random_dist_grid_width=4, random_dist_grid_height=4, random_dist_magnitude=8#https://github.com/mdbloice/p
                   , black_and_white=0.0
                   , greyscale=0.0
-                  , invert=0.0):
+                  , invert=0.0
+                  , mixup_prob=0.0
+                  , *args, **kwargs
+                  ):
     """
     Augmentor Pipeline 作成
     オプション引数の値は水増しなし。確率＝0.0とするとエラーになるため、ifでいちいち判定している
@@ -91,7 +94,7 @@ def make_pipeline(input_dir=None, output_dir='/Augmentor_output/'
     return p
 
 def make_datagenerator_from_dir(input_dir, batch_size
-                                , output_dir='../Augmentor_output'
+                                , output_dir='/Augmentor_output/'
                                 , scaled=True
                                 , IDG_options={}):
     """
