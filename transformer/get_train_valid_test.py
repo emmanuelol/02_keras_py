@@ -500,7 +500,7 @@ class LabeledDataset:
         return self.train_gen, self.valid_gen
 
     def create_augmentor_util_from_directory(self, data_dir, batch_size
-                                            , output_dir='../Augmentor_output'
+                                            , output_dir='/Augmentor_output/'
                                             , scaled=True
                                             , augmentor_options={}):
         """

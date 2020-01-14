@@ -112,6 +112,8 @@ def train_flow_from_directory(args, is_lr_finder=False):
                                                     , color_mode=args['color_mode']
                                                     , class_mode=args['class_mode']
                                                     , my_IDG_options=args['my_IDG_options'])
+    #d_cls.train_gen_augmentor = d_cls.create_augmentor_util_from_directory(args['train_data_dir'], args['batch_size'], augmentor_options=args['train_augmentor_options'])
+
     # binaryラベルのgeneratorをマルチタスクgeneratorに変換するラッパー
     if args['n_multitask'] > 1 and args['multitask_pred_n_node'] == 1:
         d_cls.train_gen = get_train_valid_test.binary_generator_multi_output_wrapper(d_cls.train_gen)
@@ -324,6 +326,8 @@ class Objective(object):
                                                         , color_mode=args['color_mode']
                                                         , class_mode=args['class_mode']
                                                         , my_IDG_options=args['my_IDG_options'])
+        #d_cls.train_gen_augmentor = d_cls.create_augmentor_util_from_directory(args['train_data_dir'], args['batch_size'], augmentor_options=args['train_augmentor_options'])
+
         # binaryラベルのgeneratorをマルチタスクgeneratorに変換するラッパー
         if args['n_multitask'] > 1 and args['multitask_pred_n_node'] == 1:
             d_cls.train_gen = get_train_valid_test.binary_generator_multi_output_wrapper(d_cls.train_gen)
