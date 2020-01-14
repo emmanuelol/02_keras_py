@@ -31,10 +31,10 @@ from predicter import ensemble_predict
 
 ## imgaug は["scipy", "scikit-image>=0.11.0", "numpy>=1.15.0", "six", "imageio", "Pillow", "matplotlib","Shapely", "opencv-python"] の依存ライブラリ必要
 #sys.path.append( str(current_dir) + '/../Git/imgaug' )
-#import imgaug
+import imgaug
 ## albumentations はimgaug をimport しておかないとimport できない
 #sys.path.append( str(current_dir) + '/../Git/albumentations' )
-#import albumentations
+import albumentations
 # https://github.com/albu/albumentations/blob/master/notebooks/example.ipynb
 
 

@@ -38,7 +38,7 @@ def save_architecture(model, output_dir):
     json_string = model.to_json()
     open(json_path,"w").write(json_string)
 
-def get_imagenet_model(output_dir:str, choice_model:str, img_rows:int, img_cols:int, channels=3, is_include_top=False, is_imagenet_model_save=True):
+def get_imagenet_model(output_dir:str, choice_model:str, img_rows:int, img_cols:int, channels=3, weights='imagenet', is_include_top=False, is_imagenet_model_save=True):
     """ VGG16などimagenetのモデル取得 """
     ## プロキシ apiproxy:8080 があるので下記の設定入れないとデータダウンロードでエラーになる
     #import urllib.request
@@ -52,28 +52,34 @@ def get_imagenet_model(output_dir:str, choice_model:str, img_rows:int, img_cols:
     if not os.path.exists(model_path):
         input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
         if choice_model.lower() == 'vgg16':# trainable == 15 img_rows=224, img_cols=224, channels=3
-            model = keras.applications.vgg16.VGG16(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.vgg16.VGG16(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'resnet50':# trainable == 164 img_rows=224, img_cols=224, channels=3
-            model = keras.applications.resnet50.ResNet50(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.resnet50.ResNet50(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'resnet152v2':
+            model = keras.applications.resnet_v2.ResNet152V2(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'inceptionv3':# trainable == 249 img_rows=299, img_cols=299, channels=3
-            model = keras.applications.inception_v3.InceptionV3(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.inception_v3.InceptionV3(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'xception':# trainable == 116 img_rows=299, img_cols=299, channels=3
-            model = keras.applications.xception.Xception(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.xception.Xception(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'inceptionresnetv2': # trainable == 761 img_rows=299, img_cols=299, channels=3
-            model = keras.applications.inception_resnet_v2.InceptionResNetV2(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.inception_resnet_v2.InceptionResNetV2(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
+
+        elif choice_model.lower() == 'densenet121':
+            model = keras.applications.densenet.DenseNet121(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'nasnetlarge':
-            model = keras.applications.nasnet.NASNetLarge(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.nasnet.NASNetLarge(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'mobilenet':
-            model = keras.applications.mobilenet.MobileNet(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.mobilenet.MobileNet(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         elif choice_model.lower() == 'mobilenetv2':
-            model = keras.applications.mobilenet_v2.MobileNetV2(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+            model = keras.applications.mobilenet_v2.MobileNetV2(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         if is_imagenet_model_save:
             model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
@@ -91,7 +97,7 @@ def get_imagenet_model(output_dir:str, choice_model:str, img_rows:int, img_cols:
     return model
 
 # ------------------------------------------ github model ------------------------------------------
-def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3, is_include_top=False, is_imagenet_model_save=True):
+def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3, weights='imagenet', is_include_top=False, is_imagenet_model_save=True):
     """
     NASNetLarge_modelダウンロード及びロード
     入力層のサイズはオプション引数で指定可能。省略したらNASNetLargeのデフォルトの331*331*3になる
@@ -105,7 +111,7 @@ def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3
     os.makedirs(output_dir, exist_ok=True)
     if not os.path.exists(model_path):
         input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
-        model = NASNetLarge(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+        model = NASNetLarge(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
         if is_imagenet_model_save:
             model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     else:
@@ -113,6 +119,7 @@ def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3
     return model
 
 def get_SENet_model(output_dir:str, choice_model:str, img_rows=224, img_cols=224, channels=3
+                        , weights=None
                         , seresnet_num=154, sedensenet_num=169, seresnext_num=50
                         , is_include_top=False, is_model_save=False):
     """
@@ -135,41 +142,41 @@ def get_SENet_model(output_dir:str, choice_model:str, img_rows=224, img_cols=224
         if choice_model.lower() == 'seresnet':
             print('seresnet_num =', seresnet_num)
             if seresnet_num == 18:
-                model = se_resnet.SEResNet18(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+                model = se_resnet.SEResNet18(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
             elif seresnet_num == 34:
-                model = se_resnet.SEResNet34(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+                model = se_resnet.SEResNet34(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
             elif seresnet_num == 50:
-                model = se_resnet.SEResNet50(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+                model = se_resnet.SEResNet50(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
             elif seresnet_num == 101:
-                model = se_resnet.SEResNet101(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+                model = se_resnet.SEResNet101(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
             elif seresnet_num == 154:
-                model = se_resnet.SEResNet154(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+                model = se_resnet.SEResNet154(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
 
         if choice_model.lower() == 'seinceptionv3':
-            model = se_inception_v3.SEInceptionV3(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+            model = se_inception_v3.SEInceptionV3(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
 
         if choice_model.lower() == 'seinceptionresnetv2':
-            model = se_inception_resnet_v2.SEInceptionResNetV2(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
+            model = se_inception_resnet_v2.SEInceptionResNetV2(weights=weights, include_top=is_include_top, input_tensor=input_tensor)#, pooling='avg')
 
         if choice_model.lower() == 'sedensenetimagenet':
             print('sedensenet_num =', sedensenet_num)
             if sedensenet_num == 121:
-                model = se_densenet.SEDenseNetImageNet121(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+                model = se_densenet.SEDenseNetImageNet121(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
             elif sedensenet_num == 161:
-                model = se_densenet.SEDenseNetImageNet161(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+                model = se_densenet.SEDenseNetImageNet161(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
             elif sedensenet_num == 169:
-                model = se_densenet.SEDenseNetImageNet169(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+                model = se_densenet.SEDenseNetImageNet169(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
             elif sedensenet_num == 201:
-                model = se_densenet.SEDenseNetImageNet201(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+                model = se_densenet.SEDenseNetImageNet201(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
             elif sedensenet_num == 264:
-                model = se_densenet.SEDenseNetImageNet264(weights='imagenet', include_top=is_include_top, input_tensor=input_tensor)
+                model = se_densenet.SEDenseNetImageNet264(weights=weights, include_top=is_include_top, input_tensor=input_tensor)
 
         if choice_model.lower() == 'seresnext':
             print('seresnext_num =', seresnext_num)
             if seresnext_num == 50:
-                model = se_resnext.SEResNextImageNet(weights='imagenet', depth=[3, 4, 6, 3], include_top=is_include_top, input_tensor=input_tensor)
+                model = se_resnext.SEResNextImageNet(weights=weights, depth=[3, 4, 6, 3], include_top=is_include_top, input_tensor=input_tensor)
             elif seresnext_num == 101:
-                model = se_resnext.SEResNextImageNet(weights='imagenet', depth=[3, 4, 23, 3], include_top=is_include_top, input_tensor=input_tensor)
+                model = se_resnext.SEResNextImageNet(weights=weights, depth=[3, 4, 23, 3], include_top=is_include_top, input_tensor=input_tensor)
 
         if is_model_save:
             model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
@@ -376,7 +383,7 @@ def get_attention_ptmodel(num_classes, activation, base_pretrained_model=None, b
     dr_steps = keras.layers.Dropout(0.25)(keras.layers.Dense(128, activation = 'relu')(gap_dr))
     out_layer = keras.layers.Dense(num_classes, activation = activation)(dr_steps)
     retina_model = keras.models.Model(inputs = [in_lay], outputs = [out_layer])
-    retina_model.summary()
+    #retina_model.summary()
 
     return retina_model
 
@@ -608,6 +615,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
                             , is_base_model_trainable=True # attentionモデルのベースモデルの重み更新するか
                             , n_multitask=1, multitask_pred_n_node=2
                             , is_imagenet_model_save=True
+                            , weights='imagenet'
                             , *args, **kwargs
                             ):
     """
@@ -652,11 +660,11 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
     print('n_multitask =', n_multitask)
 
     # imagenetモデル
-    if choice_model in ['VGG16', 'ResNet50', 'InceptionV3', 'Xception', 'InceptionResNetV2', 'MobileNet', 'MobileNetV2', 'NASNetLarge']:
-        trained_model = get_imagenet_model(output_dir, choice_model, img_rows, img_cols, channels=channels
+    if choice_model in ['VGG16', 'ResNet50', 'ResNet152V2', 'InceptionV3', 'Xception', 'DenseNet121', 'InceptionResNetV2', 'MobileNet', 'MobileNetV2', 'NASNetLarge']:
+        trained_model = get_imagenet_model(output_dir, choice_model, img_rows, img_cols, weights=weights, channels=channels
                                             , is_imagenet_model_save=is_imagenet_model_save)
     elif choice_model == 'SEResNet':
-        trained_model = get_SENet_model(output_dir, choice_model, img_rows=img_rows, img_cols=img_cols, channels=channels
+        trained_model = get_SENet_model(output_dir, choice_model, img_rows=img_rows, img_cols=img_cols, weights=weights, channels=channels
                                         , seresnet_num=seresnet_num, sedensenet_num=sedensenet_num, seresnext_num=seresnext_num
                                         , is_model_save=is_imagenet_model_save)
     elif choice_model == 'WideResNet':
@@ -668,7 +676,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
                                                     , wrn_N=wrn_N, wrn_k=wrn_k)
     elif choice_model == 'EfficientNet':
         if (img_rows is None) and (img_cols is None) and (channels is None):
-            trained_model = get_EfficientNet_model(output_dir, input_shape=None
+            trained_model = get_EfficientNet_model(output_dir, input_shape=None, weights=weights
                                                     , efficientnet_num=efficientnet_num, is_imagenet_model_save=is_imagenet_model_save)
         else:
             trained_model = get_EfficientNet_model(output_dir, input_shape=(img_rows,img_cols,channels)
