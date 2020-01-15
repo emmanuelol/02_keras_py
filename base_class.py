@@ -9,7 +9,7 @@ from tqdm import tqdm
 import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent
 from dataset import plot_log, util
-from transformer import get_train_valid_test
+from transformer import get_train_valid_test, base_dataset
 from model import define_model, my_callback, lr_finder
 from predicter import roc_curve, conf_matrix, grad_cam, ensemble_predict, base_predict
 
@@ -78,6 +78,7 @@ def get_class_fine_tuning_parameter_base() -> dict:
         'fcpool': 'GlobalAveragePooling2D',
         'is_skip_bn': True,
         'trainable': 15,
+        'efficientnet_num': 7,
         # full layer param
         'fcs': [],
         'drop': 0.5,
@@ -94,25 +95,43 @@ def get_class_fine_tuning_parameter_base() -> dict:
         'TTA_crop_num': 0,
         'TTA_crop_size': [224, 224],
         'preprocess': 1.0,
-        'resize_size': [100, 100]
+        'resize_size': [100, 100],
+        'is_flow': False,
+        'is_flow_from_directory': True,
+        'is_flow_from_dataframe': False
     }
 
-def train_flow_from_directory(args, is_lr_finder=False):
-    #### data load ####
+def train_directory(args, is_lr_finder=False):
+    #### train validation data load ####
     d_cls = get_train_valid_test.LabeledDataset([args['img_rows'], args['img_cols'], args['channels']]
                                                 , args['batch_size']
-                                                , valid_batch_size=args['batch_size'])
+                                                , valid_batch_size=args['batch_size']
+                                                , train_samples=len(util.find_img_files(args['train_data_dir']))
+                                                , valid_samples=len(util.find_img_files(args['validation_data_dir']))
+                                                )
+    if args['is_flow']:
+        # 指定ディレクトリの前処理済み画像、ラベル、ファイルパスロード
+        d_cls.X_train, d_cls.y_train, train_paths = base_dataset.load_my_data(args['train_data_dir']
+                                                                    , classes=args['classes']
+                                                                    , img_height=args['img_rows'], img_width=args['img_cols'], channel=args['channels']
+                                                                    , is_pytorch=False)
+        d_cls.X_valid, d_cls.y_valid, valid_paths = base_dataset.load_my_data(args['validation_data_dir']
+                                                                    , classes=args['classes']
+                                                                    , img_height=args['img_rows'], img_width=args['img_cols'], channel=args['channels']
+                                                                    , is_pytorch=False)
+        d_cls.X_train, d_cls.X_valid = d_cls.X_train*255., d_cls.X_valid*255.
+        d_cls.create_my_generator_flow(my_IDG_options=args['my_IDG_options'])
 
-    train_samples = len(util.find_img_files(args['train_data_dir']))
-    val_samples = len(util.find_img_files(args['validation_data_dir']))
-
-    d_cls.create_my_generator_flow_from_directory(args['train_data_dir']
-                                                    , args['classes']
-                                                    , valid_data_dir=args['validation_data_dir']
-                                                    , color_mode=args['color_mode']
-                                                    , class_mode=args['class_mode']
-                                                    , my_IDG_options=args['my_IDG_options'])
-    #d_cls.train_gen_augmentor = d_cls.create_augmentor_util_from_directory(args['train_data_dir'], args['batch_size'], augmentor_options=args['train_augmentor_options'])
+    elif args['is_flow_from_directory']:
+        d_cls.create_my_generator_flow_from_directory(args['train_data_dir']
+                                                        , args['classes']
+                                                        , valid_data_dir=args['validation_data_dir']
+                                                        , color_mode=args['color_mode']
+                                                        , class_mode=args['class_mode']
+                                                        , my_IDG_options=args['my_IDG_options'])
+        #d_cls.train_gen_augmentor = d_cls.create_augmentor_util_from_directory(args['train_data_dir']
+        #                                                                       , args['batch_size']
+        #                                                                       , augmentor_options=args['train_augmentor_options'])
 
     # binaryラベルのgeneratorをマルチタスクgeneratorに変換するラッパー
     if args['n_multitask'] > 1 and args['multitask_pred_n_node'] == 1:
@@ -134,16 +153,16 @@ def train_flow_from_directory(args, is_lr_finder=False):
 
     # lr_finder
     if is_lr_finder:
-        lr_finder.run(model, d_cls.train_gen, args['batch_size'], train_samples//args['batch_size'], output_dir=args['output_dir'])
+        lr_finder.run(model, d_cls.train_gen, args['batch_size'], d_cls.init_train_steps_per_epoch, output_dir=args['output_dir'])
 
     #### train ####
     start_time = time.time()
     hist = model.fit_generator(
         d_cls.train_gen,
-        steps_per_epoch = train_samples//args['batch_size'],
+        steps_per_epoch = d_cls.init_train_steps_per_epoch,
         epochs = args['num_epoch'],
         validation_data = d_cls.valid_gen,
-        validation_steps = val_samples//args['batch_size'],
+        validation_steps = d_cls.init_valid_steps_per_epoch,
         verbose = 2,# 1:ログをプログレスバーで標準出力 2:最低限の情報のみ出す
         callbacks = cb
         )
@@ -154,18 +173,30 @@ def train_flow_from_directory(args, is_lr_finder=False):
 
     return hist
 
-def pred_flow_from_directory(args):
-    #### data load ####
+def pred_directory(args):
+    #### test data load ####
     d_cls = get_train_valid_test.LabeledDataset([args['img_rows'], args['img_cols'], args['channels']]
                                                 , args['batch_size']
                                                 , valid_batch_size=args['batch_size'])
+    if args['is_flow']:
+        # 指定ディレクトリの前処理済み画像、ラベル、ファイルパスロード
+        d_cls.X_test, d_cls.y_test, test_paths = base_dataset.load_my_data(args['test_data_dir']
+                                                                            , classes=args['classes']
+                                                                            , img_height=args['img_rows'], img_width=args['img_cols'], channel=args['channels']
+                                                                            , is_pytorch=False)
+        d_cls.create_test_generator()
 
-    d_cls.create_my_generator_flow_from_directory(args['train_data_dir']
-                                                    , args['classes']
-                                                    , test_data_dir=args['test_data_dir']
-                                                    , color_mode=args['color_mode']
-                                                    , class_mode=args['class_mode']
-                                                    , my_IDG_options={'rescale': 1/255.})
+    elif args['is_flow_from_directory']:
+        d_cls.create_my_generator_flow_from_directory(args['train_data_dir']
+                                                        , args['classes']
+                                                        , test_data_dir=args['test_data_dir']
+                                                        , color_mode=args['color_mode']
+                                                        , class_mode=args['class_mode']
+                                                        , my_IDG_options={'rescale': 1/255.})
+
+    # binaryラベルのgeneratorをマルチタスクgeneratorに変換するラッパー
+    if args['n_multitask'] > 1 and args['multitask_pred_n_node'] == 1:
+        d_cls.test_gen = get_train_valid_test.binary_generator_multi_output_wrapper(d_cls.test_gen)
 
     # generator predict TTA
     load_model = keras.models.load_model(os.path.join(args['output_dir'], 'best_val_loss.h5'))
@@ -308,25 +339,43 @@ class Objective(object):
             'TTA_crop_num': 0,
             'TTA_crop_size': [224, 224],
             'preprocess': 1.0,
-            'resize_size': [100, 100]
+            'resize_size': [100, 100],
+            'is_flow': False,
+            'is_flow_from_directory': True,
+            'is_flow_from_dataframe': False
         }
 
-    def trial_train_flow_from_directory(self, trial, args):
-        #### data load ####
+    def trial_train_directory(self, trial, args):
+        #### train validation data load ####
         d_cls = get_train_valid_test.LabeledDataset([args['img_rows'], args['img_cols'], args['channels']]
                                                     , args['batch_size']
-                                                    , valid_batch_size=args['batch_size'])
+                                                    , valid_batch_size=args['batch_size']
+                                                    , train_samples=len(util.find_img_files(args['train_data_dir']))
+                                                    , valid_samples=len(util.find_img_files(args['validation_data_dir']))
+                                                    )
+        if args['is_flow']:
+            # 指定ディレクトリの前処理済み画像、ラベル、ファイルパスロード
+            d_cls.X_train, d_cls.y_train, train_paths = base_dataset.load_my_data(args['train_data_dir']
+                                                                        , classes=args['classes']
+                                                                        , img_height=args['img_rows'], img_width=args['img_cols'], channel=args['channels']
+                                                                        , is_pytorch=False)
+            d_cls.X_valid, d_cls.y_valid, valid_paths = base_dataset.load_my_data(args['validation_data_dir']
+                                                                        , classes=args['classes']
+                                                                        , img_height=args['img_rows'], img_width=args['img_cols'], channel=args['channels']
+                                                                        , is_pytorch=False)
+            d_cls.X_train, d_cls.X_valid = d_cls.X_train*255., d_cls.X_valid*255.
+            d_cls.create_my_generator_flow(my_IDG_options=args['my_IDG_options'])
 
-        train_samples = len(util.find_img_files(args['train_data_dir']))
-        val_samples = len(util.find_img_files(args['validation_data_dir']))
-
-        d_cls.create_my_generator_flow_from_directory(args['train_data_dir']
-                                                        , args['classes']
-                                                        , valid_data_dir=args['validation_data_dir']
-                                                        , color_mode=args['color_mode']
-                                                        , class_mode=args['class_mode']
-                                                        , my_IDG_options=args['my_IDG_options'])
-        #d_cls.train_gen_augmentor = d_cls.create_augmentor_util_from_directory(args['train_data_dir'], args['batch_size'], augmentor_options=args['train_augmentor_options'])
+        elif args['is_flow_from_directory']:
+            d_cls.create_my_generator_flow_from_directory(args['train_data_dir']
+                                                            , args['classes']
+                                                            , valid_data_dir=args['validation_data_dir']
+                                                            , color_mode=args['color_mode']
+                                                            , class_mode=args['class_mode']
+                                                            , my_IDG_options=args['my_IDG_options'])
+            #d_cls.train_gen_augmentor = d_cls.create_augmentor_util_from_directory(args['train_data_dir']
+            #                                                                       , args['batch_size']
+            #                                                                       , augmentor_options=args['train_augmentor_options'])
 
         # binaryラベルのgeneratorをマルチタスクgeneratorに変換するラッパー
         if args['n_multitask'] > 1 and args['multitask_pred_n_node'] == 1:
@@ -350,10 +399,10 @@ class Objective(object):
         #### train ####
         hist = model.fit_generator(
             d_cls.train_gen,
-            steps_per_epoch = train_samples//args['batch_size'],
+            steps_per_epoch = d_cls.init_train_steps_per_epoch,
             epochs = args['num_epoch'],
             validation_data = d_cls.valid_gen,
-            validation_steps = val_samples//args['batch_size'],
+            validation_steps = d_cls.init_valid_steps_per_epoch,
             verbose = 2,# 1:ログをプログレスバーで標準出力 2:最低限の情報のみ出す
             callbacks = cb
             )
@@ -365,7 +414,7 @@ class Objective(object):
         print(args)
 
         trial_best_loss = 1000.0
-        hist = self.trial_train_flow_from_directory(trial, args)
+        hist = self.trial_train_directory(trial, args)
 
         check_loss = np.min(hist.history['val_loss']) # check_dataは小さい方が精度良いようにしておく
         if check_loss < trial_best_loss:
@@ -399,11 +448,11 @@ if __name__ == '__main__':
 
     if p_args.mode == 'train':
         args = get_class_fine_tuning_parameter_base()
-        train_flow_from_directory(args)
+        train_directory(args)
 
     if p_args.mode == 'predict':
         args = get_class_fine_tuning_parameter_base()
-        pred_flow_from_directory(args)
+        pred_directory(args)
 
     if p_args.grad_cam_model_path is not None and p_args.grad_cam_image_dir is not None:
         args = get_class_fine_tuning_parameter_base()
@@ -413,6 +462,7 @@ if __name__ == '__main__':
                 keras.backend.clear_session()
                 keras.backend.set_learning_phase(0)
                 model = keras.models.load_model(p_args.grad_cam_model_path, compile=False)
+            # p_args.grad_cam_image_dirと同じディレクトリにGradCAM画像出力
             grad_cam.image2gradcam(model, p, is_gradcam_plus=False)
 
     if p_args.mode == 'tuning':

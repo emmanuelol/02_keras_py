@@ -115,7 +115,7 @@ def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3
         if is_imagenet_model_save:
             model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     else:
-        model = load_model(model_path)
+        model = keras.models.load_model(model_path)
     return model
 
 def get_SENet_model(output_dir:str, choice_model:str, img_rows=224, img_cols=224, channels=3
@@ -310,7 +310,7 @@ def get_Pelee_net(input_shape=(224,224,3), include_top=True, use_stem_block=True
     imagenetの重みファイルはないので、h5pyファイル保存せず毎回アーキテクチャ作る
     """# githubのPeleeNet
     sys.path.append( str(current_dir) + '/../Git/PeleeNet-Keras' )
-    import pelee_net_keras
+    import pelee_net
     if include_top == True:
         model = pelee_net_keras.PeleeNet(input_shape=input_shape
                                          , use_stem_block=use_stem_block

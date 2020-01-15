@@ -48,7 +48,9 @@ def load_my_data(dir_path:str, classes=[], img_height=0, img_width=0, channel=3,
         for path in glob.glob(str(pathlib.Path(cla_dir_path) / '*')):
             # 画像サイズの指定があれば画像ロード
             if img_width != 0 and img_height != 0:
+                #print(path)
                 x = cv2.imread(path)
+                #assert comparing_img is not None, "読込に失敗しました"
                 x = cv2.resize(x, (img_width, img_height)).astype(np.float32)
                 x /= 255.
                 xs = np.r_[xs, x[None, ...]]

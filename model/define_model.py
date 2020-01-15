@@ -115,7 +115,7 @@ def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3
         if is_imagenet_model_save:
             model.save(model_path) # 毎回ダウンロードすると重いので、ダウンロードしたら保存する
     else:
-        model = load_model(model_path)
+        model = keras.models.load_model(model_path)
     return model
 
 def get_SENet_model(output_dir:str, choice_model:str, img_rows=224, img_cols=224, channels=3
