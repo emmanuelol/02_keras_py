@@ -1,4 +1,3 @@
-#!/home/aaa00162/.conda/envs/tfgpu114/bin/python
 # coding: utf-8
 """
 pandas_profilingでテーブル形式ファイルの統計情報をhtmlで出力する
