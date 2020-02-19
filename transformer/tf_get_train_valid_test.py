@@ -34,10 +34,8 @@ from mixup_generator import MixupGenerator
 from random_eraser import get_random_eraser
 
 from tensorflow import keras
-#from keras.preprocessing.image import ImageDataGenerator # Githubのkeras-preprocessingを使う
-#sys.path.append( str(current_dir) + '/../Git/keras-preprocessing' )
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
+#from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from keras_preprocessing.image import ImageDataGenerator
 
 def binary_generator_multi_output_wrapper(generator):
     """
