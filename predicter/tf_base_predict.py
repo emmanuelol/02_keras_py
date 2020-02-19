@@ -16,6 +16,8 @@ from tqdm import tqdm
 import cv2
 from sklearn import metrics
 from sklearn.preprocessing import LabelBinarizer
+import imgaug
+import albumentations
 
 from tensorflow import keras
 
@@ -23,20 +25,10 @@ from tensorflow import keras
 import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
 sys.path.append( str(current_dir) + '/../' )
-
 # 自作モジュールimport
 from predicter import conf_matrix
 from dataset import util
 from predicter import ensemble_predict
-
-## imgaug は["scipy", "scikit-image>=0.11.0", "numpy>=1.15.0", "six", "imageio", "Pillow", "matplotlib","Shapely", "opencv-python"] の依存ライブラリ必要
-#sys.path.append( str(current_dir) + '/../Git/imgaug' )
-import imgaug
-## albumentations はimgaug をimport しておかないとimport できない
-#sys.path.append( str(current_dir) + '/../Git/albumentations' )
-import albumentations
-# https://github.com/albu/albumentations/blob/master/notebooks/example.ipynb
-
 
 def pred_classes_generator(model, generator, steps=None, classes_list=None, verbose=0):
     """

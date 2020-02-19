@@ -47,7 +47,7 @@ def get_imagenet_model(output_dir:str, choice_model:str, img_rows:int, img_cols:
     #opener = urllib.request.build_opener(proxy_support)
     #urllib.request.install_opener(opener)
 
-    model_path = os.path.join(output_dir, choice_model+'.h5py')
+    model_path = os.path.join(output_dir, choice_model+'.h5')
     os.makedirs(output_dir, exist_ok=True)
     if not os.path.exists(model_path):
         input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
@@ -107,7 +107,7 @@ def get_NASNetLarge_model(output_dir:str, img_rows=331, img_cols=331, channels=3
     sys.path.append( str(current_dir) + '/../Git/Keras-NASNet' )
     from nasnet import NASNetLarge
 
-    model_path = os.path.join(output_dir, 'NASNetLarge.h5py')
+    model_path = os.path.join(output_dir, 'NASNetLarge.h5')
     os.makedirs(output_dir, exist_ok=True)
     if not os.path.exists(model_path):
         input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
@@ -135,7 +135,7 @@ def get_SENet_model(output_dir:str, choice_model:str, img_rows=224, img_cols=224
     sys.path.append( str(current_dir) + '/../Git/keras-squeeze-excite-network' )
     import se_inception_v3, se_densenet, se_inception_resnet_v2, se_resnet, se_resnext, se
 
-    model_path = os.path.join(output_dir, choice_model+'.h5py')
+    model_path = os.path.join(output_dir, choice_model+'.h5')
     os.makedirs(output_dir, exist_ok=True)
     input_tensor = keras.layers.Input(shape=(img_rows, img_cols, channels))
     if not os.path.exists(model_path):
@@ -252,7 +252,7 @@ def get_EfficientNet_model(output_dir:str, input_shape=None, efficientnet_num=3,
         from efficientnet.keras import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
     else:# tfkerasはこっち
         from efficientnet.tfkeras import EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
-    model_path = os.path.join(output_dir, 'EfficientNetB'+str(efficientnet_num)+'.h5py')
+    model_path = os.path.join(output_dir, 'EfficientNetB'+str(efficientnet_num)+'.h5')
     os.makedirs(output_dir, exist_ok=True)
     print('EfficientNetB'+str(efficientnet_num))
     if input_shape == None:
@@ -273,7 +273,7 @@ def get_EfficientNet_model(output_dir:str, input_shape=None, efficientnet_num=3,
         elif efficientnet_num == 7:
             input_shape = (600, 600, 3)
     print('input_shape:', input_shape)
-    # レイヤーに独自関数(efficientnet.model.conv_kernel_initializer)を使っているためモデルファイル(.h5py)がmodel.load()できない。model.load_weight()はできる
+    # レイヤーに独自関数(efficientnet.model.conv_kernel_initializer)を使っているためモデルファイル(.h5)がmodel.load()できない。model.load_weight()はできる
     # 毎回imagenetのモデルファイルダウンロードする必要あり
     if efficientnet_num == 0:
         model = EfficientNetB0(weights=weights, include_top=is_include_top, input_shape=input_shape)
@@ -307,7 +307,7 @@ def get_Pelee_net(input_shape=(224,224,3), include_top=True, use_stem_block=True
     Stem blockの有無は、入力解像度・出力解像度が変わる
     Stem blockありが本来のPeleeNetの構造。なしの場合は、いきなりDenseLayerに入る
     https://qiita.com/koshian2/items/187e240f478504079e7a
-    imagenetの重みファイルはないので、h5pyファイル保存せず毎回アーキテクチャ作る
+    imagenetの重みファイルはないので、h5ファイル保存せず毎回アーキテクチャ作る
     """# githubのPeleeNet
     sys.path.append( str(current_dir) + '/../Git/PeleeNet-Keras' )
     import pelee_net
