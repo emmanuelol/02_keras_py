@@ -24,12 +24,9 @@ import numpy as np
 import pandas as pd
 from itertools import cycle
 import matplotlib.pyplot as plt
-from sklearn.utils.fixes import signature
-from sklearn.metrics import precision_recall_curve
-from sklearn.metrics import average_precision_score
-from sklearn import metrics
+from sklearn.metrics import precision_recall_curve, average_precision_score, plot_precision_recall_curve
 
-def plot_pr(y_true, y_score, out_png='PR.png'):
+def plot_pr(y_true, y_score, out_png='PR.png', mask_value=-1.0):
     """
     二値分類の推測結果からPR(Precision-Recall)曲線plot
     Args:
@@ -42,7 +39,7 @@ def plot_pr(y_true, y_score, out_png='PR.png'):
 
     # metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除する
     y_df = pd.DataFrame({'y_true': y_true, 'y_score': y_score})
-    y_df = y_df[y_df['y_true'] != -1.0]# 欠損ラベル=-1.0 以外の行だけにする
+    y_df = y_df[y_df['y_true'] != mask_value]# 欠損ラベル=-1.0 以外の行だけにする
     y_true = np.array(y_df['y_true'])
     y_score = np.array(y_df['y_score'])
 
@@ -52,8 +49,6 @@ def plot_pr(y_true, y_score, out_png='PR.png'):
         return None
     else:
         _precision, _recall, _thresholds = precision_recall_curve(y_true, y_score)
-        # AUC計算
-        _average_precision = average_precision_score(y_true, y_score)
         if np.isnan(_recall[0]) == True:
             # posiデータ0件の時はrecall[0]nanになる
             print('positive 0')
@@ -63,13 +58,8 @@ def plot_pr(y_true, y_score, out_png='PR.png'):
             print('Average precision-recall score: {0:0.8f}'.format(average_precision))
             precision, recall, _ = precision_recall_curve(y_true, y_score)
 
-    # In matplotlib < 1.5, plt.fill_between does not have a 'step' argument
-    step_kwargs = ({'step': 'post'}
-                   if 'step' in signature(plt.fill_between).parameters
-                   else {})
     plt.step(recall, precision, color='b', alpha=0.2, where='post')
-    plt.fill_between(recall, precision, alpha=0.2, color='b', **step_kwargs)
-
+    plt.fill_between(recall, precision, alpha=0.2, color='b')
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.ylim([0.0, 1.05])
@@ -79,7 +69,7 @@ def plot_pr(y_true, y_score, out_png='PR.png'):
     plt.show()
 
 
-def plot_micro_averaged_PR(n_classes, Y_true, Y_score, out_png='micro_averaged_PR.png'):
+def plot_micro_averaged_PR(n_classes, Y_true, Y_score, out_png='micro_averaged_PR.png', mask_value=-1.0):
     """
     マルチラベル分類（複数タスクの二値分類）のミクロ平均PR曲線plot
     ミクロ平均は全クラスの結果を1つにまとめてからPR曲線の面積取ったもの
@@ -104,7 +94,7 @@ def plot_micro_averaged_PR(n_classes, Y_true, Y_score, out_png='micro_averaged_P
 
         # metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除する
         y_df = pd.DataFrame({'y_true': y_true, 'y_score': y_score})
-        y_df = y_df[y_df['y_true'] != -1.0]# 欠損ラベル=-1.0 以外の行だけにする
+        y_df = y_df[y_df['y_true'] != mask_value]# 欠損ラベル=-1.0 以外の行だけにする
         y_true = np.array(y_df['y_true'])
         y_score = np.array(y_df['y_score'])
         # 欠損ラベルのレコードは削除して正解ラベル0件用対策
@@ -142,15 +132,9 @@ def plot_micro_averaged_PR(n_classes, Y_true, Y_score, out_png='micro_averaged_P
     average_precision["micro"] = average_precision_score(Y_true_flatten, Y_score_flatten, average="micro")
     print('Average precision score, micro-averaged over all classes: {0:0.8f}'.format(average_precision["micro"]))
 
-    # In matplotlib < 1.5, plt.fill_between does not have a 'step' argument
-    step_kwargs = ({'step': 'post'}
-                   if 'step' in signature(plt.fill_between).parameters
-                   else {})
-
     plt.figure()
     plt.step(recall['micro'], precision['micro'], color='b', alpha=0.2, where='post')
-    plt.fill_between(recall["micro"], precision["micro"], alpha=0.2, color='b', **step_kwargs)
-
+    plt.fill_between(recall["micro"], precision["micro"], alpha=0.2, color='b')
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.ylim([0.0, 1.05])
@@ -162,6 +146,7 @@ def plot_micro_averaged_PR(n_classes, Y_true, Y_score, out_png='micro_averaged_P
 
 def plot_each_class_PR(n_classes, Y_true, Y_score, out_png='each_class_PR'
                         , task_name_list = ['NR.AhR', 'NR.AR', 'NR.AR.LBD', 'NR.Aromatase', 'NR.ER', 'NR.ER.LBD', 'NR.PPAR.gamma', 'SR.ARE', 'SR.ATAD5', 'SR.HSE', 'SR.MMP', 'SR.p53']
+                        , mask_value=-1.0
                       ):
     """
     マルチラベル分類（複数タスクの二値分類）のミクロ平均と各タスクのPR曲線plot
@@ -188,7 +173,7 @@ def plot_each_class_PR(n_classes, Y_true, Y_score, out_png='each_class_PR'
 
         # metrics.roc_curveはy_trueが2種類でないとダメなので、欠損ラベルのレコードは削除する
         y_df = pd.DataFrame({'y_true': y_true, 'y_score': y_score})
-        y_df = y_df[y_df['y_true'] != -1.0]# 欠損ラベル=-1.0 以外の行だけにする
+        y_df = y_df[y_df['y_true'] != mask_value]# 欠損ラベル=-1.0 以外の行だけにする
         y_true = np.array(y_df['y_true'])
         y_score = np.array(y_df['y_score'])
 
@@ -268,7 +253,7 @@ def plot_each_class_PR(n_classes, Y_true, Y_score, out_png='each_class_PR'
     plt.savefig(out_png, bbox_inches="tight")# label見切れ対策 bbox_inches="tight"
     plt.show()
 
-def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title='pr_thresholds', is_queue_rate=False):
+def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title='pr_thresholds', is_queue_rate=False, mask_value=-1.0):
     """
     二値分類でf1 score最大になる閾値確認するためprecision, recallのクロス線plot
     Args:
@@ -315,7 +300,7 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
                                     , 'recall': recall
                                     , 'f1': f1_list
                                     })
-    df_plot_data = df_plot_data.fillna(-1.0) # 欠損値(nan)は-1.0にしておく
+    df_plot_data = df_plot_data.fillna(mask_value) # 欠損値(nan)は-1.0にしておく
     # plot
     plt.plot(thresholds, precision, color=sns.color_palette()[0])
     plt.plot(thresholds, recall, color=sns.color_palette()[1])

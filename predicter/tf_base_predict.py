@@ -615,3 +615,74 @@ def multiclass_roc_auc_score(y_test, y_pred, average="macro"):
     y_test = lb.transform(y_test)
     y_pred = lb.transform(y_pred)
     return metrics.roc_auc_score(y_test, y_pred, average=average)
+
+
+def get_metrics_from_score_dir(score_dir:str, mask_value=-1.0):
+    """
+    予測結果ディレクトリのtsvファイルからラベルの数と分類の評価指標(accやroc_aucなど)を計算する
+    計算結果のcsvファイル(metrics.csv)を予測結果ディレクトリに出力する
+    Args:
+        score_dir:予測結果ディレクトリ
+        mask_value:欠損ラベル
+    Return:
+        df_count_concat:分類の評価指標(accやroc_aucなど)まとめたフレーム
+    Usage:
+        hERG_random_score_dir = '/gpfsx01/home/aaa00162/jupyterhub/notebook/H3-057/Submit/make_hERG_PAMPA_model/make_model/experiment/output/hERG_random_multilabel/predict/test/score'
+        get_metrics_from_score_dir(hERG_random_score_dir)
+    """
+    score_tsvs = sorted(glob.glob(score_dir+'/*.tsv'))
+    round_num = 3
+    df_count_concat = None
+    for p in score_tsvs:
+        df = pd.read_csv(p, sep='\t')
+
+        df_count = pd.DataFrame(df['y_true'].value_counts())
+        df_count = df_count.T.reset_index(drop=True)
+        cols = sorted(df_count.columns.to_list())
+
+        if mask_value is not None:
+            df = df[df['y_true'] != mask_value]# 欠損ラベル=-1.0 以外の行だけにする
+            if df['y_true'].shape[0] == 0:
+                # 欠損ラベルのレコードは削除して正解ラベル0件用対策
+                print('all nan')
+                continue
+
+        df_count['tsv'] = pathlib.Path(p).name
+
+        roc_auc = metrics.roc_auc_score(df['y_true'], df['y_pred'])
+        df_count['roc_auc'] = round(roc_auc, round_num)
+
+        average_precision = metrics.average_precision_score(df['y_true'], df['y_pred'])
+        df_count['pr_auc'] = round(average_precision, round_num)
+
+        acc = metrics.accuracy_score(df['y_true'], df['y_pred'].round())
+        df_count['accuracy'] = round(acc, round_num)
+
+        precision = metrics.precision_score(df['y_true'], df['y_pred'].round())
+        df_count['precision'] = round(precision, round_num)
+
+        recall = metrics.recall_score(df['y_true'], df['y_pred'].round())
+        df_count['recall'] = round(recall, round_num)
+
+        tn, fp, fn, tp = metrics.confusion_matrix(df['y_true'], df['y_pred'].round()).ravel()
+        df_count['specificity'] = round(tn / (tn+fp), round_num)
+
+        f1 = metrics.f1_score(df['y_true'], df['y_pred'].round())
+        df_count['f1'] = round(f1, round_num)
+
+        if df_count_concat is None:
+            df_count_concat = df_count
+        else:
+            df_count_concat = pd.concat([df_count_concat, df_count], ignore_index=True)
+
+    if mask_value is not None:
+        df_count_concat = df_count_concat[['tsv', 'accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc', 'pr_auc', 0.0, 1.0, mask_value]]
+    else:
+        df_count_concat = df_count_concat[['tsv', 'accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc', 'pr_auc', 0.0, 1.0]]
+    #display(df_count_concat)
+
+    out_csv = os.path.join(score_dir, 'metrics.csv')
+    df_count_concat.to_csv(out_csv, index=False)
+    print("INFO: save file. [{}] {}".format(out_csv, df_count_concat.shape))
+
+    return df_count_concat

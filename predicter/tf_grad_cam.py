@@ -45,6 +45,7 @@ from scipy.ndimage.interpolation import zoom
 import warnings
 warnings.filterwarnings("ignore")
 
+import tensorflow as tf
 from tensorflow import keras
 
 def preprocess_x(x):
@@ -76,7 +77,12 @@ def grad_cam(model, X, x, layer_name, img_rows, img_cols, class_output):
     '''
     # 勾配を取得
     conv_output = model.get_layer(layer_name).output   # layer_nameのレイヤーのアウトプット
-    grads = keras.backend.gradients(class_output, conv_output)[0]  # gradients(loss, variables) で、variablesのlossに関しての勾配を返す
+
+    # https://www.aipacommander.com/entry/2019/05/14/000250
+    g = tf.Graph()
+    with g.as_default():
+        grads = tf.gradients(class_output, conv_output)[0]
+    ##grads = keras.backend.gradients(class_output, conv_output)[0]  # gradients(loss, variables) で、variablesのlossに関しての勾配を返す
     gradient_function = keras.backend.function([model.input], [conv_output, grads])  # model.inputを入力すると、conv_outputとgradsを出力する関数
 
     output, grads_val = gradient_function([X])
@@ -111,7 +117,12 @@ def grad_cam_plus(model, X, x, layer_name, img_rows, img_cols, class_output):
     #cost = 全部のラベルの値。cost*label_indexでy_cになる
     conv_output = input_model.get_layer(layer_name).output
     #conv_output = target_conv_layer, mixed10の出力1,5,5,2048
-    grads = keras.backend.gradients(y_c, conv_output)[0]
+
+    # https://www.aipacommander.com/entry/2019/05/14/000250
+    g = tf.Graph()
+    with g.as_default():
+        grads = tf.gradients(y_c, conv_output)[0]
+    ####grads = keras.backend.gradients(y_c, conv_output)[0]
     #grads = normalize(grads)
 
     first = keras.backend.exp(y_c)*grads
@@ -200,7 +211,7 @@ def branch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true
        最後のtaskのGrad-cam画像1枚（内部処理で全taskのGradCam画像を出力してる）
     """
     if img_rows is None or img_cols is None:
-        shape = [model.input_shape[1].value, model.input_shape[2].value, model.input_shape[3].value] # モデルオブジェクトの入力層のサイズ取得
+        shape = [model.input_shape[1], model.input_shape[2], model.input_shape[3]] # モデルオブジェクトの入力層のサイズ取得
         img_rows, img_cols = shape[0], shape[1]
 
     if layer_name is None:
@@ -324,7 +335,7 @@ def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true
        最後のtaskのGrad-cam画像1枚（内部処理で全taskのGradCam画像を出力してる）
     """
     if img_rows is None or img_cols is None:
-        shape = [model.input_shape[1].value, model.input_shape[2].value, model.input_shape[3].value] # モデルオブジェクトの入力層のサイズ取得
+        shape = [model.input_shape[1], model.input_shape[2], model.input_shape[3]] # モデルオブジェクトの入力層のサイズ取得
         img_rows, img_cols = shape[0], shape[1]
 
     if layer_name is None:
@@ -429,7 +440,7 @@ def image2numpy_keras(image_path:str, shape):
     x = keras.preprocessing.image.img_to_array(img)
     return x
 
-def image2gradcam(model, image_path:str, X=None, layer_name=None, class_idx=None, out_jpg=None, is_gradcam_plus=False):
+def image2gradcam(model, image_path:str, X=None, layer_name=None, class_idx=None, out_jpg=None, out_dir=None, is_gradcam_plus=False):
     """
     画像ファイル1枚からGradCam実行して画像保存
     Args:
@@ -438,10 +449,10 @@ def image2gradcam(model, image_path:str, X=None, layer_name=None, class_idx=None
        X:4次元numpy.array型の画像データ（*1./255.後）。Noneならimage_pathから作成する
        layer_name:GradCamかける層の名前。Noneならモデルの最後のPooling層の名前取得にする
        class_idx:GradCamかけるクラスid。Noneなら予測スコア最大クラスでGradCamかける
-       out_jpg:GradCam画像出力先パス。Noneならimage_pathから作成する
+       out_jpg,out_dir:GradCam画像出力先パス。Noneならimage_pathから作成する
        is_gradcam_plus:gradcam++で実行するか。Falseだと普通のgradcam実行
     """
-    shape = [model.input.shape[1].value, model.input.shape[2].value, model.input.shape[3].value] # モデルオブジェクトの入力層のサイズ取得
+    shape = [model.input_shape[1], model.input_shape[2], model.input_shape[3]] # モデルオブジェクトの入力層のサイズ取得
     x = image2numpy_keras(image_path, shape) # 画像ファイルをリサイズしてnp.arrayにする
 
     if X is None:
@@ -464,10 +475,12 @@ def image2gradcam(model, image_path:str, X=None, layer_name=None, class_idx=None
 
     # Grad-Cam画像保存
     if out_jpg is None:
+        if out_dir is None:
+            out_dir = str(pathlib.Path(image_path).parent)
         if is_gradcam_plus == True:
-            out_jpg = str(pathlib.Path(image_path).parent)+'/'+str(pathlib.Path(image_path).stem)+f"_classidx{class_idx}_gradcam++.jpg"
+            out_jpg = out_dir+'/'+str(pathlib.Path(image_path).stem)+f"_classidx{class_idx}_gradcam++.jpg"
         else:
-            out_jpg = str(pathlib.Path(image_path).parent)+'/'+str(pathlib.Path(image_path).stem)+f"_classidx{class_idx}_gradcam.jpg"
+            out_jpg = out_dir+'/'+str(pathlib.Path(image_path).stem)+f"_classidx{class_idx}_gradcam.jpg"
         print(f"out_jpg: {out_jpg}")
     grad_cam_img.save(out_jpg, 'JPEG', quality=100, optimize=True)
 
