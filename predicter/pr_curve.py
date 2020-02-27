@@ -25,6 +25,7 @@ import pandas as pd
 from itertools import cycle
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_curve, average_precision_score, plot_precision_recall_curve
+from scipy.optimize import minimize
 
 def plot_pr(y_true, y_score, out_png='PR.png', mask_value=-1.0):
     """
@@ -257,12 +258,12 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
     """
     二値分類でf1 score最大になる閾値確認するためprecision, recallのクロス線plot
     Args:
-        test_labels: 正解ラベル ex: np.array([0, 0, 1, 1])
-        predictions: 予測ラベル ex: np.array([0.1, 0.4, 0.35, 0.8])
+        test_labels: 正解ラベル e.g: np.array([0, 0, 1, 1])
+        predictions: 予測ラベル e.g: np.array([0.1, 0.4, 0.35, 0.8])
         out_png: plot画像出力パス
         title: plot画像のタイトル
         is_queue_rate: plotにqueue_rate入れるか
-    Return:
+    Returns:
         df_plot_data: df_plot_data: plot画像のデータフレーム( thresholds, precision, recall, f1, queue_rate )
         f1_max_threshold: f1最大の閾値 (f1最大の閾値=df_plot_dataのf1列のmax値)
         precision_max_threshold: precision最大の閾値 (f1最大の閾値=df_plot_dataのprecision列のmax値)
@@ -332,3 +333,35 @@ def plot_pr_thresholds(test_labels, predictions, out_png='pr_thresholds', title=
     recall_max_threshold = df_plot_data.sort_values(by=['recall'], ascending=False)['thresholds'].values[0]
 
     return df_plot_data, f1_max_threshold, precision_max_threshold, recall_max_threshold
+
+def f1_best_threshhold(y, pred_prob:np.ndarray):
+    """
+    scipy.optimizeのminimizeメソッドでf1最大になるしきい値求める
+    Args:
+        y:正解ラベル e.g: np.array([0, 0, 1, 1])やpd.Series(False, False, True, True)
+        pred_prob:予測ラベル e.g: np.array([0.1, 0.4, 0.35, 0.8])
+    Returns:
+        best_threshold:f1最大になるしきい値
+        best_f1_score:f1最大値
+    Usage:
+        size = 10000
+        rand = np.random.RandomState(seed=41)
+        y_prob = np.linspace(0,1.0,size)
+        pred_prob = np.clip(y_prob * np.exp(rand.standard_normal(y_prob.shape))*0.3, 0.0, 1.0)
+        print('pred_prob:', pred_prob[:5])
+
+        y = pd.Series(rand.uniform(0.0,1.0,size) < y_prob)
+        print('y:\n', y[:5])
+        print(f1_best_threshhold(y, pred_prob))
+
+        y = [1.0 if is_y else 0.0 for is_y in y]
+        print('y:', y[:5])
+        print(f1_best_threshhold(y, pred_prob))
+    """
+    def f1_opt(x):
+        """f1のしきい値最適化の目的関数"""
+        return -f1_score(y, pred_prob >= x)
+    opt_result = minimize(f1_opt, x0=np.array([0.5]), method="Nelder-Mead")
+    best_threshold = opt_result['x'].item()
+    best_f1_score = f1_score(y, pred_prob >= best_threshold)
+    return best_threshold, best_f1_score
