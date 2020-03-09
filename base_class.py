@@ -143,7 +143,8 @@ def train_directory(args, is_lr_finder=False):
     model, orig_model = define_model.get_fine_tuning_model(args['output_dir']
                                                             , args['img_rows'], args['img_cols'], args['channels']
                                                             , args['num_classes']
-                                                            , args['choice_model'], args['trainable']
+                                                            , args['choice_model']
+                                                            , trainable=args['trainable']
                                                             , fcpool=args['fcpool']
                                                             , activation=args['activation'], weights=args['weights'])
     optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
@@ -346,6 +347,7 @@ class Objective(object):
         }
 
     def trial_train_directory(self, trial, args):
+        keras.backend.clear_session()
         #### train validation data load ####
         d_cls = get_train_valid_test.LabeledDataset([args['img_rows'], args['img_cols'], args['channels']]
                                                     , args['batch_size']
@@ -387,7 +389,8 @@ class Objective(object):
         model, orig_model = define_model.get_fine_tuning_model(args['output_dir']
                                                                 , args['img_rows'], args['img_cols'], args['channels']
                                                                 , args['num_classes']
-                                                                , args['choice_model'], args['trainable']
+                                                                , args['choice_model']
+                                                                , trainable=args['trainable']
                                                                 , fcpool=args['fcpool']
                                                                 , activation=args['activation'], weights=args['weights'])
         optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
@@ -414,14 +417,23 @@ class Objective(object):
         print(args)
 
         trial_best_loss = 1000.0
+        #trial_best_err = 1000.0
+
         hist = self.trial_train_directory(trial, args)
 
         check_loss = np.min(hist.history['val_loss']) # check_dataは小さい方が精度良いようにしておく
         if check_loss < trial_best_loss:
-            print('check_loss, self.trial_best_loss:', str(check_loss), str(trial_best_loss))
+            print('check_loss, trial_best_loss:', str(check_loss), str(trial_best_loss))
             trial_best_loss = check_loss
             if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5')) == True:
                 shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5'), os.path.join(args['output_dir'], 'best_trial_loss.h5'))
+
+        #check_err = 1.0 - np.max(hist.history['val_acc']) # check_dataは小さい方が精度良いようにしておく
+        #if check_err < trial_best_err:
+        #    print('check_err, trial_best_err:', str(check_err), str(trial_best_err))
+        #    trial_best_err = check_err
+        #    if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5')) == True:
+        #        shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5'), os.path.join(args['output_dir'], 'best_trial_acc.h5'))
 
         # acc とloss の記録
         trial.set_user_attr('loss', np.min(hist.history['loss']))

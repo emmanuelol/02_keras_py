@@ -44,6 +44,7 @@ Usage:
 """
 import os, sys
 import numpy as np
+from PIL import Image
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
@@ -404,3 +405,27 @@ def get_cifar10_best_train_generator(x_train, y_train, batch_size):
     from experiment.cifar10_wrn_acc_97 import cifar10_wrn_acc_97
     train_gen = cifar10_wrn_acc_97.mode7_generator(x_train, y_train, batch_size)
     return train_gen
+
+def randaugment_generator(gen, N=None, M=None, rescale=1.0/255.0):
+    """
+    Rand_AugmentでData AugmentationするGenerator
+    RandAugment:ランダムにN個のAugmentation手法(=transformation)を選ぶData Augmentation。AutoAugmentに匹敵する精度。
+    パラメータはN,Mだけなので最適なNとMはグリッドサーチで見つけれる。
+    Mはそれぞれのtransformationごとに決めるのではなく、全transformationに一貫して同じMを使うことで探索空間をさらに減らしています。
+    日本語解説:https://ai-scholar.tech/treatise/randaugment-ai-370/
+    Args:
+        gen:flow済みImageDataGenerator
+        N: 選択するtransformation(水増し)の数
+        M: Augmentationをどれだけ強くかけるか。Mは0から10のいずれかの整数
+        rescale: 1.0/255.0の前処理
+    """
+    import sys
+    sys.path.append(r'C:\Users\shingo\Git\randaugment')
+    import Rand_Augment
+    img_augment = Rand_Augment.Rand_Augment(Numbers=N, max_Magnitude=M)
+    while True:
+        batch_x, batch_y = next(gen)
+        batch_img = [Image.fromarray(np.uint8(x)) for x in batch_x] # numpy->PIL
+        batch_img = [img_augment(image=img) for img in batch_img] # Rand_Augment.Rand_AugmentはPILでないとエラー
+        batch_x = np.array([np.asarray(img)*rescale for img in batch_img]) # PIL->numpy
+        yield (batch_x, batch_y)
