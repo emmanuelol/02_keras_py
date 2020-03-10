@@ -1,46 +1,35 @@
 """
-KerasのImageDataGeneratorのカスタムジェネレータークラス
-ImageDataGenerator+Mix-up+Random_Cropping+Random_Erasing
+KerasのImageDataGeneratorのカスタムジェネレーター
 
 Usage:
-    import my_generator
-    # 訓練画像水増し（Data Augmentation）
-    train_datagen = my_generator.MyImageDataGenerator(
-        rescale=1.0,
-        shear_range = shear_range,
-        zoom_range=zoom_range,
-        mix_up_alpha=mix_up_alpha,
-        #random_crop=random_crop,
-        random_erasing_prob=random_erasing_prob,
-        random_erasing_maxpixel=1.0
-        )
-    # 検証画像_前処理実行
-    val_datagen = my_generator.get_datagen(rescale=1.0)
+    from keras_preprocessing.image import ImageDataGenerator
+    import tf_my_generator as my_generator
 
-    # 訓練画像用意
-    train_generator = datagen.flow_from_directory(
+    classes = ['nega', 'posi']
+    shape = [331,512,3]
+    batch_size = 15
+
+    gen = ImageDataGenerator(rescale=1.0/255.0, shear_range=20, zoom_range=[0.8,1.5])
+
+    gen = gen.flow_from_directory(
         train_data_dir, # ラベルクラスをディレクトリ名にした画像ディレクトリのパス
         target_size=(shape[0], shape[1]), # すべての画像はこのサイズにリサイズ
         color_mode='rgb',# 画像にカラーチャンネルが3つある場合は「rgb」画像が白黒またはグレースケールの場合は「grayscale」
         classes=classes, # 分類クラスリスト
-        class_mode='categorical', # 2値分類は「binary」、多クラス分類は「categorical」
-        batch_size=train_batch_size, # バッチごとにジェネレータから生成される画像の数
+        class_mode='categorical', # 2値分類は「binary」(=ラベルidに変換する)、多クラス分類は「categorical」(=onehotラベルに変換する)
+        batch_size=batch_size, # バッチごとにジェネレータから生成される画像の数
         shuffle=True # 生成されているイメージの順序をシャッフルする場合は「True」を設定し、それ以外の場合は「False」。train set は基本入れ替える
     )
-    # train_generator = train_datagen.flow(x_train, y_train, batch_size=train_batch_size)
+    # gen = gen.flow(x_train, y_train, batch_size=batch_size)
+    # custom_gen = my_generator.get_cifar10_best_train_generator(x_train, y_train, batch_size)
 
-    # 検証画像用意
-    validation_generator = valid_datagen.flow_from_directory(
-        train_data_dir,
-        target_size=(shape[0], shape[1]),
-        color_mode='rgb',
-        classes=classes,
-        class_mode='categorical',
-        batch_size=train_batch_size,# batch_size はセット内の画像の総数を正確に割るような数に設定しないと同じ画像を2回使うため、validation やtest setのbatch size は割り切れる数にすること！！！
-        shuffle=False# validation/test set は基本順番入れ替えない
-    )
-    # val_datagen.flow(x_test, y_test, batch_size=valid_batch_size)
-
+    custom_gen = my_generator.randaugment_generator(gen, N=3, M=4)
+    custom_gen = my_generator.get_kuzushiji_generator(custom_gen)
+    custom_gen = my_generator.gray_generator(custom_gen, p=0.5)
+    custom_gen = my_generator.random_crop_generator(custom_gen, random_crop_size=[100,100])
+    custom_gen = my_generator.random_erasing_generator(custom_gen, p=0.5)
+    custom_gen = my_generator.ricap_generator(custom_gen) # ラベルいじるmixupやricapは最後にすること
+    custom_gen = my_generator.mixup_generator(custom_gen) # ラベルいじるmixupやricapは最後にすること
 """
 import os, sys
 import numpy as np
@@ -56,11 +45,14 @@ current_dir = pathlib.Path(__file__).resolve().parent # このファイルのデ
 sys.path.append( str(current_dir) + '/../' )
 from transformer import ndimage, my_image
 
+#sys.path.append(r'C:\Users\shingo\Git\randaugment')
+#import Rand_Augment
+from Git.randaugment import Rand_Augment
+
 _gray_aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=1)])] )
 def preprocessing_grayscale(x):
     """ ImageDataGeneratorのpreprocessing_functionで3次元画像をグレースケール化 """
     x = _gray_aug(image=x)["image"].astype(np.float32)
-    #print(x, x.shape, type(x), type(x[0][0][0]))
     return x
 
 def get_datagen(rescale=1.0/255, is_grayscale=False):
@@ -72,10 +64,283 @@ def get_datagen(rescale=1.0/255, is_grayscale=False):
         datagen = ImageDataGenerator(rescale=rescale) # 前処理：画像を0.0~1.0の範囲に変換
     return datagen
 
+def random_crop(original_img, random_crop_size):
+    """
+    ランダムクロップ
+    https://jkjung-avt.github.io/keras-image-cropping/
+    """
+    # Note: image_data_format is 'channel_last'
+    assert original_img.shape[2] == 3
+    if original_img.shape[0] < random_crop_size[0] or original_img.shape[1] < random_crop_size[1]:
+        raise ValueError(f"Invalid random_crop_size : original = {original_img.shape}, crop_size = {random_crop_size}")
+    height, width = original_img.shape[0], original_img.shape[1]
+    #dy, dx = random_crop_size
+    #x = np.random.randint(0, width - dx + 1)
+    #y = np.random.randint(0, height - dy + 1)
+    #x_crop = original_img[y:(y+dy), x:(x+dx), :]
+    data = {'image': original_img}
+    augmentation = albumentations.RandomCrop(random_crop_size[0], original_img.shape[1], p=0.5) # albumentationsでやってみる
+    x_crop = augmentation(**data)['image']
+    #x_crop_img = Image.fromarray(np.uint8(x_crop * 255.0)) # numpy->PIL
+    #x_crop_img = x_crop_img.resize((width, height), Image.LANCZOS) # resize
+    #return np.asarray(x_crop_img)/255.0 # PIL->numpy
+    return ndimage.resize(x_crop, width, height) # x_cropの画像サイズはcropしたサイズなのでもとの画像サイズに戻す
+
+def mix_up(X1, y1, X2, y2, mix_up_alpha=0.2):
+    """
+    Mix-up
+    https://qiita.com/yu4u/items/70aa007346ec73b7ff05
+    """
+    assert X1.shape[0] == y1.shape[0] == X2.shape[0] == y2.shape[0]
+    batch_size = X1.shape[0]
+    l = np.random.beta(mix_up_alpha, mix_up_alpha, batch_size)
+    X_l = l.reshape(batch_size, 1, 1, 1)
+    y_l = l.reshape(batch_size, 1)
+    X = X1 * X_l + X2 * (1-X_l)
+    y = y1 * y_l + y2 * (1-y_l)
+    return X, y
+
+def random_erasing(x, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=255):
+    """
+    Random Erasing
+    https://www.kumilog.net/entry/numpy-data-augmentation#Random-Erasing
+    """
+    image = np.copy(x)
+    # マスクするかしないか
+    if np.random.rand() > p:
+        return image
+    # マスクする画素値をランダムで決める
+    mask_value = np.random.randint(0, max_pic)
+    h, w, _ = image.shape
+    # マスクのサイズを元画像のs(0.02~0.4)倍の範囲からランダムに決める
+    mask_area = np.random.randint(h * w * s[0], h * w * s[1])
+    # マスクのアスペクト比をr(0.3~3)の範囲からランダムに決める
+    mask_aspect_ratio = np.random.rand() * r[1] + r[0]
+    # マスクのサイズとアスペクト比からマスクの高さと幅を決める
+    # 算出した高さと幅(のどちらか)が元画像より大きくなることがあるので修正する
+    mask_height = int(np.sqrt(mask_area / mask_aspect_ratio))
+    if mask_height > h - 1:
+        mask_height = h - 1
+    mask_width = int(mask_aspect_ratio * mask_height)
+    if mask_width > w - 1:
+        mask_width = w - 1
+    top = np.random.randint(0, h - mask_height)
+    left = np.random.randint(0, w - mask_width)
+    bottom = top + mask_height
+    right = left + mask_width
+    image[top:bottom, left:right, :].fill(mask_value)
+    return image
+
+def ricap(image_batch, label_batch, beta=0.3, use_same_random_value_on_batch=True):
+    """
+    RICAP（Data Augmentation using Random Image Cropping and Patching for Deep CNNs）:
+    4枚の画像をクリッピングして画像合成するData Augmentation
+    https://qiita.com/koshian2/items/1a6b93ee5724a6d63730
+    Arges:
+        image_batch: generatorから生成される1バッチのnumpy画像データ
+        label_batch: generatorから生成される1バッチの画像のラベルデータ
+        beta: 画像合成する大きさ
+        use_same_random_value_on_batch:
+            use_same_random_value_on_batch=Trueとすれば論文と同じように「ミニバッチ間で共通の乱数を使う例」となります
+            また、この値をFalseにすれば、「サンプル間で別々の乱数を使う例」となります
+    """
+    # if use_same_random_value_on_batch = True : same as the original papaer
+    assert image_batch.shape[0] == label_batch.shape[0]
+    assert image_batch.ndim == 4
+    batch_size, image_y, image_x = image_batch.shape[:3]
+    # crop_size w, h from beta distribution
+    if use_same_random_value_on_batch:
+        w_dash = np.random.beta(beta, beta) * np.ones(batch_size)
+        h_dash = np.random.beta(beta, beta) * np.ones(batch_size)
+    else:
+        w_dash = np.random.beta(beta, beta, size=(batch_size))
+        h_dash = np.random.beta(beta, beta, size=(batch_size))
+    w = np.round(w_dash * image_x).astype(np.int32)
+    h = np.round(h_dash * image_y).astype(np.int32)
+    # outputs
+    output_images = np.zeros(image_batch.shape)
+    output_labels = np.zeros(label_batch.shape)
+
+    def create_masks(start_xs, start_ys, end_xs, end_ys):
+        mask_x = np.logical_and(np.arange(image_x).reshape(1,1,-1,1) >= start_xs.reshape(-1,1,1,1),
+                                np.arange(image_x).reshape(1,1,-1,1) < end_xs.reshape(-1,1,1,1))
+        mask_y = np.logical_and(np.arange(image_y).reshape(1,-1,1,1) >= start_ys.reshape(-1,1,1,1),
+                                np.arange(image_y).reshape(1,-1,1,1) < end_ys.reshape(-1,1,1,1))
+        mask = np.logical_and(mask_y, mask_x)
+        mask = np.logical_and(mask, np.repeat(True, image_batch.shape[3]).reshape(1,1,1,-1))
+        return mask
+
+    def crop_concatenate(wk, hk, start_x, start_y, end_x, end_y):
+        nonlocal output_images, output_labels
+        xk = (np.random.rand(batch_size) * (image_x-wk)).astype(np.int32)
+        yk = (np.random.rand(batch_size) * (image_y-hk)).astype(np.int32)
+        target_indices = np.arange(batch_size)
+        np.random.shuffle(target_indices)
+        weights = wk * hk / image_x / image_y
+        dest_mask = create_masks(start_x, start_y, end_x, end_y)
+        target_mask = create_masks(xk, yk, xk+wk, yk+hk)
+        output_images[dest_mask] = image_batch[target_indices][target_mask]
+        output_labels += weights.reshape(-1, 1) * label_batch[target_indices]
+
+    # left-top crop
+    crop_concatenate(w, h,
+                     np.repeat(0, batch_size), np.repeat(0, batch_size),
+                     w, h)
+    # right-top crop
+    crop_concatenate(image_x-w, h,
+                     w, np.repeat(0, batch_size),
+                     np.repeat(image_x, batch_size), h)
+    # left-bottom crop
+    crop_concatenate(w, image_y-h,
+                     np.repeat(0, batch_size), h,
+                     w, np.repeat(image_y, batch_size))
+    # right-bottom crop
+    crop_concatenate(image_x-w, image_y-h,
+                     w, h, np.repeat(image_x, batch_size),
+                     np.repeat(image_y, batch_size))
+    return output_images, output_labels
+
+def get_kuzushiji_generator(gen):
+    """
+    下山さんがくずし字コンペでやっていたData AugmentationをするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+    """
+    for batch_x, batch_y in gen:
+        aug = my_image.Compose(
+            [
+                my_image.RandomTransform(width=batch_x[0].shape[1], height=batch_x[0].shape[0], flip_h=False), # Flip, Scale, Resize, Rotateをまとめて処理。
+                my_image.RandomCompose(
+                    [
+                        my_image.RandomBlur(p=0.125), # ぼかし。
+                        my_image.RandomUnsharpMask(p=0.125), # シャープ化。
+                        my_image.GaussNoise(p=0.125), # ガウシアンノイズ。
+                        my_image.RandomBrightness(p=0.25), # 明度の変更。
+                        my_image.RandomContrast(p=0.25), # コントラストの変更。
+                        my_image.RandomEqualize(p=0.0625), # ヒストグラム平坦化。
+                        my_image.RandomAutoContrast(p=0.0625), # オートコントラスト。
+                        my_image.RandomPosterize(p=0.0625), # ポスタリゼーション。
+                        my_image.RandomAlpha(p=0.125), # 画像の一部にランダムな色の半透明の矩形を描画する
+                    ]
+                ),
+            ]
+        )
+        batch_x = np.array([aug(image=x)["image"] for x in batch_x])
+        yield batch_x, batch_y
+
+def get_cifar10_best_train_generator(x_train, y_train, batch_size):
+    """
+    CIFAR10のbest ImageDataGenerator 取得
+    C:/Users/shingo/jupyter_notebooktfgpu_py36_work/02_keras_py/experiment/cifar10_wrn_acc_97/cifar10_wrn_acc_97.py より
+    Args:
+        x_train:前処理前の画像array
+        y_train:ラベルarray
+        batch_size:バッチサイズ
+    """
+    from experiment.cifar10_wrn_acc_97 import cifar10_wrn_acc_97
+    train_gen = cifar10_wrn_acc_97.mode7_generator(x_train, y_train, batch_size)
+    return train_gen
+
+def randaugment_generator(gen, N=None, M=None, rescale=1.0/255.0):
+    """
+    Rand_AugmentでData AugmentationするGenerator
+    RandAugment:ランダムにN個のAugmentation手法(=transformation)を選ぶData Augmentation。AutoAugmentに匹敵する精度。
+    パラメータはN,Mだけなので最適なNとMはグリッドサーチで見つけれる。
+    例:
+        _N = trial.suggest_categorical('N', list(range(2,14)))
+        _M = trial.suggest_categorical('M', list(range(0,10)))
+    Nは14種類。
+    Mはそれぞれのtransformationごとに決めるのではなく、全transformationに一貫して同じMを使うことで探索空間をさらに減らしています。
+    日本語解説:https://ai-scholar.tech/treatise/randaugment-ai-370/
+
+    論文では以下のパターンの時best results
+    - cifar10 + WideResNet-28-2:   N=1,M=2
+    - cifar10 + Wide-ResNet-28-10: N=2,M=14
+    Args:
+        gen:flow済みImageDataGenerator
+        N: 選択するtransformation(水増し)の数。
+        M: Augmentationをどれだけ強くかけるか。Mは0から10のいずれかの整数。
+        rescale: 1.0/255.0の前処理.genは1/255済みでないと
+    """
+    img_augment = Rand_Augment.Rand_Augment(Numbers=N, max_Magnitude=M)
+    for batch_x, batch_y in gen:
+        if np.max(batch_x) > 1.0:
+            # 前処理してない場合
+            batch_img = [Image.fromarray(np.uint8(x)) for x in batch_x] # numpy->PIL
+        else:
+            # 前処理済みの場合
+            batch_img = [Image.fromarray(np.uint8(x/rescale)) for x in batch_x] # numpy->PIL
+        batch_img = [img_augment(image=img) for img in batch_img] # Rand_Augment.Rand_AugmentはPILでないとエラー
+        batch_x = np.array([np.asarray(img, np.float32)*rescale for img in batch_img]) # PIL->numpy
+        yield batch_x, batch_y
+
+def ricap_generator(gen, beta=0.3, use_same_random_value_on_batch=True):
+    """
+    RICAPでData AugmentationするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+        beta, use_same_random_value_on_batch: RICAPのパラメータ
+    """
+    for batch_x, batch_y in gen:
+        yield ricap(batch_x, batch_y, beta=beta, use_same_random_value_on_batch=use_same_random_value_on_batch)
+
+def random_erasing_generator(gen, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=1.0):
+    """
+    Random ErasingでData AugmentationするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+        p, s, r, max_pic: Random Erasingのパラメータ
+    """
+    for batch_x, batch_y in gen:
+        batch_x = np.array([random_erasing(x, p=p, s=s, r=r, max_pic=max_pic) for x in batch_x])
+        yield batch_x, batch_y
+
+def mixup_generator(gen, mix_up_alpha=0.2):
+    """
+    MixupでData AugmentationするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+        mix_up_alpha: Mixupのパラメータ
+    """
+    for batch_x, batch_y in gen:
+        while True:
+            batch_x_2, batch_y_2 = next(gen)
+            m1, m2 = batch_x.shape[0], batch_x_2.shape[0]
+            if m1 < m2:
+                batch_x_2 = batch_x_2[:m1]
+                batch_y_2 = batch_y_2[:m1]
+                break
+            elif m1 == m2:
+                break
+        batch_x, batch_y = mix_up(batch_x, batch_y, batch_x_2, batch_y_2)
+        yield batch_x, batch_y
+
+def random_crop_generator(gen, random_crop_size=[224,224]):
+    """
+    Random cropでData AugmentationするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+        random_crop_size: Random cropのパラメータ
+    """
+    for batch_x, batch_y in gen:
+        batch_x = np.array([random_crop(x, random_crop_size) for x in batch_x])
+        yield batch_x, batch_y
+
+def gray_generator(gen, p=1):
+    """
+    grayscaleでData AugmentationするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+        p:グレー化する確率
+    """
+    aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=p)])] )
+    for batch_x, batch_y in gen:
+        batch_x = np.array([aug(image=x*255.0)["image"] for x in batch_x])
+        yield batch_x/255.0, batch_y
+
 class MyImageDataGenerator(ImageDataGenerator):
     """
     KerasのImageDataGeneratorを継承してMix-upやRandom Croppingのできる独自のジェネレーターを作る
-    Random Erasing も追加した
     https://qiita.com/koshian2/items/909360f50e3dd5922f32
     """
     def __init__(self
@@ -106,267 +371,71 @@ class MyImageDataGenerator(ImageDataGenerator):
                  , random_erasing_maxpixel = 255 # random_erasing で消す領域の画素の最大値
                  , ricap_beta = 0.0 # RICAP。使う場合は0.3とか
                  , ricap_use_same_random_value_on_batch = True # RICAP
-                 , is_base_aug = False # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
-                 , is_grayscale = False # グレースケール化
+                 , is_kuzushiji_gen = False # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
+                 , grayscale_prob = 0.0 # グレースケール化の確率
+                 , randaugment_N=None # randaugmentのN
+                 , randaugment_M=None # randaugmentのM
                  , *args, **kwargs
                 ):
         # 親クラスのコンストラクタ
         super().__init__(featurewise_center, samplewise_center, featurewise_std_normalization, samplewise_std_normalization, zca_whitening, zca_epsilon, rotation_range, width_shift_range, height_shift_range, brightness_range, shear_range, zoom_range, channel_shift_range, fill_mode, cval, horizontal_flip, vertical_flip, rescale, preprocessing_function, data_format, validation_split
                          , *args, **kwargs)
-
         # 拡張処理のパラメーター
-        # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
-        self.is_base_aug = is_base_aug
-        # Mix-up
-        assert mix_up_alpha >= 0.0
+        self.is_kuzushiji_gen = is_kuzushiji_gen
         self.mix_up_alpha = mix_up_alpha
-        # Random Crop
-        assert random_crop == None or len(random_crop) == 2
         self.random_crop_size = random_crop
-        # Random Erasing
-        assert random_erasing_prob >= 0.0
         self.random_erasing_prob = random_erasing_prob
-        if rescale == 1. / 255 and random_erasing_maxpixel == 255:
-            self.random_erasing_maxpixel = 1
+        if rescale == 1.0/255.0 and random_erasing_maxpixel == 255:
+            self.random_erasing_maxpixel = 1.0
         else:
             self.random_erasing_maxpixel = random_erasing_maxpixel
-        # グレースケール化
-        self.is_grayscale = is_grayscale
-        # RICAP
-        assert ricap_beta >= 0.0
+        self.grayscale_prob = grayscale_prob
         self.ricap_beta = ricap_beta
         self.ricap_use_same_random_value_on_batch = ricap_use_same_random_value_on_batch
+        self.randaugment_N = randaugment_N
+        self.randaugment_M = randaugment_M
 
-    def random_crop(self, original_img):
-        """
-        ランダムクロップ
-        https://jkjung-avt.github.io/keras-image-cropping/
-        """
-        # Note: image_data_format is 'channel_last'
-        assert original_img.shape[2] == 3
-        if original_img.shape[0] < self.random_crop_size[0] or original_img.shape[1] < self.random_crop_size[1]:
-            raise ValueError(f"Invalid random_crop_size : original = {original_img.shape}, crop_size = {self.random_crop_size}")
-        height, width = original_img.shape[0], original_img.shape[1]
-        #dy, dx = self.random_crop_size
-        #x = np.random.randint(0, width - dx + 1)
-        #y = np.random.randint(0, height - dy + 1)
-        #x_crop = original_img[y:(y+dy), x:(x+dx), :]
-        data = {'image': original_img}
-        augmentation = albumentations.RandomCrop(self.random_crop_size[0], original_img.shape[1], p=0.5) # albumentationsでやってみる
-        x_crop = augmentation(**data)['image']
-        return ndimage.resize(x_crop, height, width) # x_cropの画像サイズはcropしたサイズなのでもとの画像サイズに戻す
+    def custom_process(self, gen):
+        """ 上記の自作generatorを組み合わせてnextをreturnする """
 
-    def mix_up(self, X1, y1, X2, y2):
-        """
-        Mix-up
-        https://qiita.com/yu4u/items/70aa007346ec73b7ff05
-        """
-        assert X1.shape[0] == y1.shape[0] == X2.shape[0] == y2.shape[0]
-        batch_size = X1.shape[0]
-        l = np.random.beta(self.mix_up_alpha, self.mix_up_alpha, batch_size)
-        X_l = l.reshape(batch_size, 1, 1, 1)
-        y_l = l.reshape(batch_size, 1)
-        X = X1 * X_l + X2 * (1-X_l)
-        y = y1 * y_l + y2 * (1-y_l)
-        return X, y
+        if self.is_kuzushiji_gen:
+            gen = get_kuzushiji_generator(gen)
 
-    def random_erasing(self, x, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=255):
-        """
-        Random Erasing
-        https://www.kumilog.net/entry/numpy-data-augmentation#Random-Erasing
-        """
-        image = np.copy(x)
-        # マスクするかしないか
-        if np.random.rand() > p:
-            return image
-        # マスクする画素値をランダムで決める
-        mask_value = np.random.randint(0, max_pic)
-        h, w, _ = image.shape
-        # マスクのサイズを元画像のs(0.02~0.4)倍の範囲からランダムに決める
-        mask_area = np.random.randint(h * w * s[0], h * w * s[1])
-        # マスクのアスペクト比をr(0.3~3)の範囲からランダムに決める
-        mask_aspect_ratio = np.random.rand() * r[1] + r[0]
-        # マスクのサイズとアスペクト比からマスクの高さと幅を決める
-        # 算出した高さと幅(のどちらか)が元画像より大きくなることがあるので修正する
-        mask_height = int(np.sqrt(mask_area / mask_aspect_ratio))
-        if mask_height > h - 1:
-            mask_height = h - 1
-        mask_width = int(mask_aspect_ratio * mask_height)
-        if mask_width > w - 1:
-            mask_width = w - 1
-        top = np.random.randint(0, h - mask_height)
-        left = np.random.randint(0, w - mask_width)
-        bottom = top + mask_height
-        right = left + mask_width
-        image[top:bottom, left:right, :].fill(mask_value)
-        return image
+        if (self.randaugment_N is not None) and (self.randaugment_M is not None):
+            gen = randaugment_generator(gen, N=self.randaugment_N, M=self.randaugment_M)
 
-    def ricap(self, image_batch, label_batch, beta=0.3, use_same_random_value_on_batch=True):
-        """
-        RICAP（Data Augmentation using Random Image Cropping and Patching for Deep CNNs）:
-        4枚の画像をクリッピングして画像合成するData Augmentation
-        https://qiita.com/koshian2/items/1a6b93ee5724a6d63730
-        Arges:
-            image_batch: generatorから生成される1バッチのnumpy画像データ
-            label_batch: generatorから生成される1バッチの画像のラベルデータ
-            beta: 画像合成する大きさ
-            use_same_random_value_on_batch:
-                use_same_random_value_on_batch=Trueとすれば論文と同じように「ミニバッチ間で共通の乱数を使う例」となります
-                また、この値をFalseにすれば、「サンプル間で別々の乱数を使う例」となります
-        """
-        # if use_same_random_value_on_batch = True : same as the original papaer
-        assert image_batch.shape[0] == label_batch.shape[0]
-        assert image_batch.ndim == 4
-        batch_size, image_y, image_x = image_batch.shape[:3]
+        if self.grayscale_prob > 0.0:
+            gen = gray_generator(gen, p=self.grayscale_prob)
 
-        # crop_size w, h from beta distribution
-        if use_same_random_value_on_batch:
-            w_dash = np.random.beta(beta, beta) * np.ones(batch_size)
-            h_dash = np.random.beta(beta, beta) * np.ones(batch_size)
-        else:
-            w_dash = np.random.beta(beta, beta, size=(batch_size))
-            h_dash = np.random.beta(beta, beta, size=(batch_size))
-        w = np.round(w_dash * image_x).astype(np.int32)
-        h = np.round(h_dash * image_y).astype(np.int32)
-        # outputs
-        output_images = np.zeros(image_batch.shape)
-        output_labels = np.zeros(label_batch.shape)
+        if self.random_crop_size is not None:
+            gen = random_crop_generator(gen, random_crop_size=self.random_crop_size)
 
-        def create_masks(start_xs, start_ys, end_xs, end_ys):
-            mask_x = np.logical_and(np.arange(image_x).reshape(1,1,-1,1) >= start_xs.reshape(-1,1,1,1),
-                                    np.arange(image_x).reshape(1,1,-1,1) < end_xs.reshape(-1,1,1,1))
-            mask_y = np.logical_and(np.arange(image_y).reshape(1,-1,1,1) >= start_ys.reshape(-1,1,1,1),
-                                    np.arange(image_y).reshape(1,-1,1,1) < end_ys.reshape(-1,1,1,1))
-            mask = np.logical_and(mask_y, mask_x)
-            mask = np.logical_and(mask, np.repeat(True, image_batch.shape[3]).reshape(1,1,1,-1))
-            return mask
+        if self.random_erasing_prob > 0.0:
+            gen = random_erasing_generator(gen, p=self.random_erasing_prob)
 
-        def crop_concatenate(wk, hk, start_x, start_y, end_x, end_y):
-            nonlocal output_images, output_labels
-            xk = (np.random.rand(batch_size) * (image_x-wk)).astype(np.int32)
-            yk = (np.random.rand(batch_size) * (image_y-hk)).astype(np.int32)
-            target_indices = np.arange(batch_size)
-            np.random.shuffle(target_indices)
-            weights = wk * hk / image_x / image_y
-            dest_mask = create_masks(start_x, start_y, end_x, end_y)
-            target_mask = create_masks(xk, yk, xk+wk, yk+hk)
-            output_images[dest_mask] = image_batch[target_indices][target_mask]
-            output_labels += weights.reshape(-1, 1) * label_batch[target_indices]
+        if self.mix_up_alpha > 0.0:
+            gen = mixup_generator(gen, mix_up_alpha=self.mix_up_alpha)
 
-        # left-top crop
-        crop_concatenate(w, h,
-                         np.repeat(0, batch_size), np.repeat(0, batch_size),
-                         w, h)
-        # right-top crop
-        crop_concatenate(image_x-w, h,
-                         w, np.repeat(0, batch_size),
-                         np.repeat(image_x, batch_size), h)
-        # left-bottom crop
-        crop_concatenate(w, image_y-h,
-                         np.repeat(0, batch_size), h,
-                         w, np.repeat(image_y, batch_size))
-        # right-bottom crop
-        crop_concatenate(image_x-w, image_y-h,
-                         w, h, np.repeat(image_x, batch_size),
-                         np.repeat(image_y, batch_size))
-        return output_images, output_labels
+        if self.ricap_beta > 0.0:
+            gen = ricap_generator(gen, beta=self.ricap_beta, use_same_random_value_on_batch=self.ricap_use_same_random_value_on_batch)
 
-
-    def custom_process(self, batches):
-        """
-        拡張処理
-        (回転や拡大,ぼかしとか明度変更とか（下山さんが使っていたAutoAugmentのデフォルト？）→ Mix-up → Random_Crop → RICAP → Random_Erasing)
-        """
-        batch_x, batch_y = next(batches) # <-- 追加が必要ですね
-
-        if self.is_base_aug == True:
-            # Flip, Scale, Resize, Rotateをまとめて処理、
-            # ぼかし, シャープ化, ガウシアンノイズ, 明度変更, コントラストの変更, ヒストグラム平坦化, オートコントラスト, ポスタリゼーション, 画像の一部にランダムな色の半透明の矩形を描画する
-            aug = my_image.Compose(
-                [
-                    my_image.RandomTransform(width=batch_x[0].shape[1], height=batch_x[0].shape[0], flip_h=False), # Flip, Scale, Resize, Rotateをまとめて処理。
-                    my_image.RandomCompose(
-                        [
-                            my_image.RandomBlur(p=0.125), # ぼかし。
-                            my_image.RandomUnsharpMask(p=0.125), # シャープ化。
-                            my_image.GaussNoise(p=0.125), # ガウシアンノイズ。
-                            my_image.RandomBrightness(p=0.25), # 明度の変更。
-                            my_image.RandomContrast(p=0.25), # コントラストの変更。
-                            my_image.RandomEqualize(p=0.0625), # ヒストグラム平坦化。
-                            my_image.RandomAutoContrast(p=0.0625), # オートコントラスト。
-                            my_image.RandomPosterize(p=0.0625), # ポスタリゼーション。
-                            my_image.RandomAlpha(p=0.125), # 画像の一部にランダムな色の半透明の矩形を描画する
-                        ]
-                    ),
-                ]
-            )
-            x = np.zeros(batch_x.shape)
-            for i in range(batch_x.shape[0]):
-                x[i] = aug(image=batch_x[i])["image"]
-            batch_x = x
-
-        # Mix-up
-        if self.mix_up_alpha > 0:
-            while True:
-                batch_x_2, batch_y_2 = next(batches)
-                m1, m2 = batch_x.shape[0], batch_x_2.shape[0]
-                if m1 < m2:
-                    batch_x_2 = batch_x_2[:m1]
-                    batch_y_2 = batch_y_2[:m1]
-                    break
-                elif m1 == m2:
-                    break
-            batch_x, batch_y = self.mix_up(batch_x, batch_y, batch_x_2, batch_y_2)
-
-        # Random crop うまく機能しない。。。
-        if self.random_crop_size != None:
-            x = np.zeros((batch_x.shape[0], self.random_crop_size[0], self.random_crop_size[1], 3))
-            for i in range(batch_x.shape[0]):
-                x[i] = self.random_crop(batch_x[i])
-            batch_x = x
-
-        # RICAP
-        if self.ricap_beta > 0:
-            batch_x, batch_y = self.ricap(batch_x, batch_y, beta=self.ricap_beta, use_same_random_value_on_batch=self.ricap_use_same_random_value_on_batch)
-
-        # グレースケール化
-        if self.is_grayscale == True:
-            aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=1)])] )
-            x = np.zeros(batch_x.shape)
-            for i in range(batch_x.shape[0]):
-                # rescale済みだから255.0かけないとおかしくなる
-                tmp = aug(image=batch_x[i]*255.0)["image"]
-                x[i] = tmp/255.0
-            batch_x = x
-
-        # Random Erasing
-        if self.random_erasing_prob > 0:
-            x = np.zeros(batch_x.shape)
-            for i in range(batch_x.shape[0]):
-                x[i] = self.random_erasing(batch_x[i], p=self.random_erasing_prob, max_pic=self.random_erasing_maxpixel)
-            batch_x = x
-
-        return (batch_x, batch_y)
-
+        return next(gen)
 
     def flow_from_directory(self, directory, target_size = (256,256), color_mode = 'rgb',
                             classes = None, class_mode = 'categorical', batch_size = 32, shuffle = True,
                             seed = None, save_to_dir = None, save_prefix = '', save_format = 'png',
                             follow_links = False, subset = None, interpolation = 'nearest'):
         # 親クラスのflow_from_directory
-        batches = super().flow_from_directory(directory, target_size, color_mode, classes, class_mode, batch_size, shuffle, seed, save_to_dir, save_prefix, save_format, follow_links, subset, interpolation)
-        # 拡張処理
+        gen = super().flow_from_directory(directory, target_size, color_mode, classes, class_mode, batch_size, shuffle, seed, save_to_dir, save_prefix, save_format, follow_links, subset, interpolation)
         while True:
-            # 返り値
-            yield self.custom_process(batches)
+            yield self.custom_process(gen)
 
-    def flow(self, x, y=None, batch_size=32, shuffle=True, seed=None, save_to_dir=None, save_prefix='', save_format='png', subset=None):
+    def flow(self, x, y=None, batch_size=32, shuffle=True, seed=None
+            , save_to_dir=None, save_prefix='', save_format='png', subset=None):
         # 親クラスのflow_from_directory
-        batches = super().flow(x, y, batch_size, shuffle, seed, save_to_dir, save_prefix, save_format, subset)
-        # 拡張処理
+        gen = super().flow(x, y, batch_size, shuffle, seed, save_to_dir, save_prefix, save_format, subset)
         while True:
-            # 返り値
-            yield self.custom_process(batches)
+            yield self.custom_process(gen)
 
     def flow_from_dataframe(self, dataframe,
                             directory=None, x_col="filename", y_col="class", weight_col=None,
@@ -375,54 +444,10 @@ class MyImageDataGenerator(ImageDataGenerator):
                             seed=None, save_to_dir=None, save_prefix='', save_format='png',
                             subset=None, interpolation='nearest', validate_filenames=True):
         # 親クラスのflow_from_dataframe
-        print('color_mode', color_mode)
-        batches = super().flow_from_dataframe(dataframe, directory, x_col, y_col, weight_col,
+        gen = super().flow_from_dataframe(dataframe, directory, x_col, y_col, weight_col,
                                               target_size, color_mode, classes,
                                               class_mode, batch_size, shuffle,
                                               seed, save_to_dir, save_prefix, save_format,
                                               subset, interpolation, validate_filenames)
-        # 拡張処理
         while True:
-            # 返り値
-            yield self.custom_process(batches)
-
-
-def get_cifar10_best_train_generator(x_train, y_train, batch_size):
-    """
-    CIFAR10のbest ImageDataGenerator 取得
-    C:/Users/shingo/jupyter_notebooktfgpu_py36_work/02_keras_py/experiment/cifar10_wrn_acc_97/cifar10_wrn_acc_97.py より
-    Args:
-        x_train:前処理前の画像array
-        y_train:ラベルarray
-        batch_size:バッチサイズ
-    """
-    from experiment.cifar10_wrn_acc_97 import cifar10_wrn_acc_97
-    train_gen = cifar10_wrn_acc_97.mode7_generator(x_train, y_train, batch_size)
-    return train_gen
-
-def randaugment_generator(gen, N=None, M=None, rescale=1.0/255.0):
-    """
-    Rand_AugmentでData AugmentationするGenerator
-    RandAugment:ランダムにN個のAugmentation手法(=transformation)を選ぶData Augmentation。AutoAugmentに匹敵する精度。
-    パラメータはN,Mだけなので最適なNとMはグリッドサーチで見つけれる。
-    例:
-        _N = trial.suggest_categorical('N', list(range(2,14)))
-        _M = trial.suggest_categorical('M', list(range(0,10)))
-    Mはそれぞれのtransformationごとに決めるのではなく、全transformationに一貫して同じMを使うことで探索空間をさらに減らしています。
-    日本語解説:https://ai-scholar.tech/treatise/randaugment-ai-370/
-    Args:
-        gen:flow済みImageDataGenerator
-        N: 選択するtransformation(水増し)の数
-        M: Augmentationをどれだけ強くかけるか。Mは0から10のいずれかの整数
-        rescale: 1.0/255.0の前処理
-    """
-    import sys
-    sys.path.append(r'C:\Users\shingo\Git\randaugment')
-    import Rand_Augment
-    img_augment = Rand_Augment.Rand_Augment(Numbers=N, max_Magnitude=M)
-    while True:
-        batch_x, batch_y = next(gen)
-        batch_img = [Image.fromarray(np.uint8(x)) for x in batch_x] # numpy->PIL
-        batch_img = [img_augment(image=img) for img in batch_img] # Rand_Augment.Rand_AugmentはPILでないとエラー
-        batch_x = np.array([np.asarray(img)*rescale for img in batch_img]) # PIL->numpy
-        yield (batch_x, batch_y)
+            yield self.custom_process(gen)

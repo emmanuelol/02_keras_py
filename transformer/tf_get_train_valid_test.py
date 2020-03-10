@@ -25,7 +25,8 @@ import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.append( str(current_dir) + '/../' )
 # 自作モジュールimport
-from transformer import my_generator, augmentor_util
+from transformer import tf_my_generator as my_generator
+from transformer import augmentor_util
 
 # githubのmixupをimport
 # /home/tmp10014/jupyterhub/notebook/other/lib_DL/mixup-generator
