@@ -30,7 +30,6 @@ Usage2: コマンドラインから指定のクラス(タスク)のgradcam画像
     $ ${PYTHON} tf_grad_cam.py --image_path ${cat_dog} # テスト用。imagenet_vgg16でgradcam。gradcam画像はimage_pathと同じディレクトリに出力
     $ CUDA_VISIBLE_DEVICES=1 ${PYTHON} tf_grad_cam.py --image_path ${cat_dog} --model_path model.h5 # 予測スコア最大クラスを指定モデルの最後のPooling層でgradcam
     $ CUDA_VISIBLE_DEVICES=2 ${PYTHON} tf_grad_cam.py --image_path ${cat_dog} --model_path model.h5 --layer_name mix10 --class_idx 0 --out_jpg ${out_jpg} # gradcamのクラスidや層指定、出力画像パスも措定
-    $ CUDA_VISIBLE_DEVICES=3 ${PYTHON} tf_grad_cam.py --image_path ${cat_dog} --model_path model.h5 --is_gradcam_plus # gradcam++で実行
 """
 import os, sys, time, shutil, glob, pathlib, argparse
 import cv2
