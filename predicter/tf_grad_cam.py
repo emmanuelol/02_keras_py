@@ -128,26 +128,27 @@ class GradCAM:
         # 乗算してcastConvOutputsもcastGradsどちらも1.0である箇所の勾配だけ残す
         guidedGrads = castConvOutputs * castGrads * grads
 
-        # convOutputsとguidedGradsはバッチ次元があるが必要ないので0番目(バッチの1番目の画像)だけ取る
+        # 4. convOutputsとguidedGradsはバッチ次元があるが必要ないので0番目(バッチの1番目の画像)だけ取る
         convOutputs = convOutputs[0]
         guidedGrads = guidedGrads[0]
 
-        # フィルターごとに勾配値の平均を計算し、それらを重みとして使用
+        # 5. フィルターごとに勾配値の平均を計算し、それらを重みとして使用
         # 各フィルターの平均(=Global Average Pooling)をlayerNameの層の出力の重みにするのがGrad-CAMが強力な理由
         weights = tf.reduce_mean(guidedGrads, axis=(0, 1))
         cam = tf.reduce_sum(tf.multiply(weights, convOutputs), axis=-1)
 
-        # 入力画像のサイズを取得し、cam(layerNameの層の出力に勾配の重みを掛けたもの)のサイズを変更
+        # 6. 入力画像のサイズを取得し、cam(layerNameの層の出力に勾配の重みを掛けたもの)のサイズを変更
         (w, h) = (X.shape[2], X.shape[1])
         heatmap = cv2.resize(cam.numpy(), (w, h))
 
-        # すべての値が範囲内に収まるようにヒートマップを正規化する
+        # 7. すべての値が範囲内に収まるようにヒートマップを正規化する
         numer = heatmap - np.min(heatmap)
         denom = (heatmap.max() - heatmap.min()) + eps
         heatmap = numer / denom # 値が[0、1]の範囲になる
         heatmap = (heatmap * 255).astype("uint8") # 画像に戻すために255掛けて、符号なし8ビット整数に変換
 
-        # heatmapは画像内でネットワークがアクティブ化された場所の単一チャネルのグレースケール表現。大きい値は高いアクティブ化に対応し、小さい値は低いアクティブ化に対応
+        # heatmapは画像内でネットワークがアクティブ化された場所の単一チャネルのグレースケール表現
+        # 大きい値は高いアクティブ化に対応し、小さい値は低いアクティブ化に対応
         return heatmap
 
     def overlay_heatmap(self, heatmap:np.ndarray, x:np.ndarray, alpha=0.5, colormap=cv2.COLORMAP_JET):# cv2.COLORMAP_VIRIDIS
