@@ -494,11 +494,11 @@ def main(args):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--image_path", type=str, required=True, help="input image path.")
-    ap.add_argument("--model_path", type=str, default=None, help="model path.")
-    ap.add_argument("--layer_name", type=str, default=None, help="gradcam layer_name.")
-    ap.add_argument("--class_idx", type=int, default=None, help="gradcam class_idx.")
-    ap.add_argument("--out_jpg", type=str, default=None, help="output gradcam jpg path.")
+    ap.add_argument("-i", "--image_path", type=str, required=True, help="input image path.")
+    ap.add_argument("-m", "--model_path", type=str, default=None, help="model path.")
+    ap.add_argument("-l", "--layer_name", type=str, default=None, help="gradcam layer_name.")
+    ap.add_argument("-c_i", "--class_idx", type=int, default=None, help="gradcam class_idx.")
+    ap.add_argument("-o_j", "--out_jpg", type=str, default=None, help="output gradcam jpg path.")
     ap.add_argument("--is_gradcam_plus", action='store_const', const=True, default=False, help="Grad-Cam++ flag.")
     args = ap.parse_args()
 
