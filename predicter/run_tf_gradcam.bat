@@ -7,6 +7,7 @@ cd C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\predicter
 @rem 実行テスト
 call python tf_grad_cam.py -i C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\experiment\01_code_test\creative_commons_elephant.png
 call python tf_grad_cam.py -i C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\experiment\01_code_test\cat_dog.png
+call python tf_grad_cam.py -i C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\experiment\01_code_test\horse_gray.jpg
 
 call python tf_grad_cam.py ^
 -i C:\Users\shingo\jupyter_notebook\tfgpu_py36_work\02_keras_py\experiment\01_code_test\creative_commons_elephant.png ^

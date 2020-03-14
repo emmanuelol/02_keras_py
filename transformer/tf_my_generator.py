@@ -338,6 +338,71 @@ def gray_generator(gen, p=1):
         batch_x = np.array([aug(image=x*255.0)["image"] for x in batch_x])
         yield batch_x/255.0, batch_y
 
+def label_smoothing_generator(gen, smooth_factor=0.1, mask_value=-1.0, is_multi_class=True):
+    """
+    Imagedatagenerator用label_smoothing
+    label_smoothing：分類問題の正解ラベルの1を0.9みたいに下げ、0ラベルを0.1みたいに上げ、過学習軽減させる正則化手法。
+    間違っている正解ラベルが混じっているデータセットのときに有効
+    tensorflow.kerasなら以下のコードでもlabel_smoothing可能(https://www.pyimagesearch.com/2019/12/30/label-smoothing-with-keras-tensorflow-and-deep-learning/ より)
+        from tensorflow.keras.losses import CategoricalCrossentropy
+        loss = CategoricalCrossentropy(label_smoothing=0.1)
+        model.compile(loss=loss, optimizer='sgd', metrics=["accuracy"])
+    Args:
+        gen:flow済みImagedatageneratorのインスタンス。d_cls.train_genとか
+        smooth_factor:label_smoothingで下げる割合。smooth_factor=0.1で、5クラス[0,0,1,0,0]なら[0.02,0.02,0.92,0.02,0.02]になる
+        mask_value:欠損値ラベル。label_smoothingでラベル値がマイナスになる場合、mask_valueに置き換える
+        is_multi_class:マルチクラス分類のフラグ。Falseの場合、smooth_factor=0.1で、5クラス[0,0,1,0,0]なら[0.00,0.00,0.90,0.00,0.00]になる
+                       マルチクラス分類の場合softmaxで合計ラベル=1になるが、multiラベルはそうではないので、ラベル値加算したくない時用
+    Returns:
+        Imagedatageneratorインスタンス（yはlabel_smoothing済み）
+    """
+    def _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class):
+        y_i = y_i.astype('float64') # int型だとエラーになるのでfloatに変換
+        y_i *= 1 - smooth_factor # ラベル値減らす
+        # ラベル値加算するか(マルチクラス分類の場合softmaxで合計ラベル=1になるが、multiラベルはそうではないので)
+        if is_multi_class == True:
+            y_i += smooth_factor / y_i.shape[0]
+        y_i = np.where(y_i < 0.0, mask_value, y_i) # 負の値になったらマスク値に置換する
+        return y_i
+
+    for x, y in gen:
+        smooth_y = np.empty(y.shape, dtype=np.float) # yは上書きできないので同じ大きさの空配列用意
+        for i,y_i in enumerate(y):
+            smooth_y[i] = _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class)
+        yield x, smooth_y
+
+def print_image_generator(gen, i=0):
+    """
+    ImageDataGeneratorの1batdh分画像とラベルをprintで確認する
+    Arges:
+        gen: flow済みのImageDataGeneratorのインスタンス。d_cls.train_genとか
+        i: batchのid
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    x,y = next(gen)
+    print('x.shape:', x.shape)
+    print(f'x[{i}]:\n', x[i])
+    print('np.max(x):', np.max(x))
+    if isinstance(y, list):
+        # マルチタスクの場合
+        print('len(y):', len(y))
+        for ii in range(y[0].shape[0]):
+            y_ii = [y_i[ii] for y_i in y]
+            print(f'y[{ii}]:', y_ii)
+            plt.imshow(x[ii])
+            plt.grid(False)
+            plt.show()
+    else:
+        # シングルタスク/マルチラベルの場合
+        print('y.shape:', y.shape)
+        for ii in range(len(y)):
+            print(f'y[{ii}]:', y[ii])
+            plt.imshow(x[ii])
+            plt.grid(False)
+            plt.show()
+
 class MyImageDataGenerator(ImageDataGenerator):
     """
     KerasのImageDataGeneratorを継承してMix-upやRandom Croppingのできる独自のジェネレーターを作る
