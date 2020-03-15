@@ -109,11 +109,11 @@ def get_class_distribution(y):
     """
     ラベルの数を辞書型で返す
     Args:
-        y:ラベル。np.array([1,0,0,0,1,0])みたいなの
+        y:ラベル。np.array([1,0,0,0,1,0])やnp.array([[0,1],[1,0],[1,0],[0,1],[1,0],[1,0]])みたいなの
     Returns:
         ラベルの数。上の例なら{0: 4, 1: 2}みたいなの
     """
-    y_cls = [np.argmax(one) for one in y] if len(np.array(y).shape) == 2 else y
+    y_cls = [np.argmax(one) for one in y] if len(np.array(y).shape) == 2 else y # yがonehotならidに戻す
     classset = sorted(list(set(y_cls)))
     sample_distribution = {cur_cls:len([one for one in y_cls if one == cur_cls]) for cur_cls in classset}
     return sample_distribution

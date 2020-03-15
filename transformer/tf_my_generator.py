@@ -33,11 +33,14 @@ Usage:
 """
 import os, sys
 import numpy as np
+import pandas as pd
 import imgaug
 import albumentations
 from PIL import Image
+import threading
 
 #from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow import keras
 from keras_preprocessing.image import ImageDataGenerator
 
 import pathlib
@@ -516,3 +519,116 @@ class MyImageDataGenerator(ImageDataGenerator):
                                               subset, interpolation, validate_filenames)
         while True:
             yield self.custom_process(gen)
+
+
+
+def get_load_image_balanced_generator(paths:np.ndarray, labels:np.ndarray, n_samples=5, shape=[331,331,3], rescale_factor=1.0/255.0):
+    """
+    画像パスとラベル渡してミニバッチごとにunder samplingするGenerator
+    ※jupyterではカーネル再起動しないとkerasのfit_generator()実行できない。
+    　fit_generator()連続で実行するとthread系のエラーで学習失敗する。。。
+    Args:
+        paths:全画像パス
+        labels:ラベル。np.array(['high','low','mid'])みたいラベル名やidもしくはonehotラベルでもいける
+        n_samples:各クラスのサンプル数。バッチサイズ//クラス数にすること
+        shape:リサイズする画像サイズ
+        rescale_factor:画像前処理
+    Usage:
+        data_dir = r'D:\work\kaggle_data\Cats_VS._Dogs\images\small_set\train\Cat'
+        img_paths = glob.glob(data_dir+'/*jpg')
+        img_names = img_paths
+
+        x = np.array(img_names)
+        # ラベル不均衡にする
+        y = np.array([0]*10 + [1]*(x.shape[0]-40) + [2]*30)
+        enc, y = get_train_valid_test.label2onehot(y)
+
+        # ミニバッチでunder samplingするGenerator
+        gen = my_generator.get_load_image_balanced_generator(x, y)
+        x,y = next(gen)
+        util.plot_5imgs(x, plot_num=20, labels=[np.argmax(_y) for _y in y])
+
+        # 別Generatorと組み合わせる
+        custom_gen = my_generator.randaugment_generator(gen, N=3, M=4)
+        custom_gen = my_generator.mixup_generator(custom_gen)
+        x,y = next(custom_gen)
+        util.plot_5imgs(x, plot_num=20, labels=[np.argmax(_y) for _y in y])
+    """
+    def _load_image_tfkeras(filename, shape, rescale_factor):
+        """サイズ指定して画像を読み込んでnumpy.arrayに変換"""
+        img = keras.preprocessing.image.load_img(filename, target_size=shape[:2])
+        return keras.preprocessing.image.img_to_array(img) * rescale_factor
+
+    #with threading.Lock():
+    _iter = BatchBalancedSampler(features=paths, labels=labels, n_samples=n_samples)
+    for _paths, _labels in _iter:
+        _x = np.array([_load_image_tfkeras(p, shape, rescale_factor=rescale_factor) for p in _paths])
+        yield _x, _labels
+
+class BatchBalancedSampler:
+    def __init__(self, features:np.ndarray, labels:np.ndarray, n_samples:int):
+        """
+        ミニバッチをunder sampling（不均衡データマルチクラス分類用）
+        ※under sampling: 多数派データをランダムに減らして少数派データと均一にする
+        参考:https://devblog.thebase.in/entry/2020/02/29/110000?utm_campaign=piqcy&utm_medium=email&utm_source=Revue%20newsletter
+        Args:
+            features:説明変数。全特徴量や全画像パスとか
+            labels:ラベル。np.array(['high','low','mid'])みたいラベル名やidもしくはonehotラベルでもいける
+            n_samples:各クラスのサンプル数。バッチサイズ//クラス数にすること
+        Returns:
+            under samplingしたfeaturesとlabels
+        Usage:
+            test_iter = BatchBalancedSampler(features=x, labels=y, n_samples=5)
+            for paths, labels in test_iter:
+                print(paths, paths.shape)
+                print(labels, labels.shape)
+                break
+        """
+        self.n_samples = n_samples
+        self.features = features
+        self.labels = labels
+
+        # labelsがonehotならidに戻す
+        if len(np.array(labels).shape) == 2:
+            labels = np.array([np.argmax(one) for one in labels])
+
+        # 各ラベルの数集計
+        label_counts = pd.Series(labels).value_counts()# labelsが文字列の場合でもいけるようにする #np.bincount(labels)
+        major_label = label_counts.argmax()
+        minor_labels = [l for l in label_counts.index if l != major_label]#minor_label = label_counts.argmin()
+
+        # 各ラベルのindex取得
+        self.major_indices = np.where(labels == major_label)[0]
+        self.minor_indices_list = [np.where(labels == minor_label)[0] for minor_label in minor_labels]#self.minor_indices_list = np.where(labels == minor_label)[0]
+
+        # 各ラベルのindexシャッフル
+        np.random.shuffle(self.major_indices)
+        for minor_indices in self.minor_indices_list:
+            np.random.shuffle(minor_indices)
+
+        self.used_indices = 0
+        self.count = 0
+        self.n_class = label_counts.shape[0]
+        self.batch_size = self.n_samples * self.n_class
+
+    def __iter__(self):
+        while True:
+            np.random.shuffle(self.major_indices)
+            for minor_indices in self.minor_indices_list:
+                np.random.shuffle(minor_indices)
+            self.used_indices = 0
+            self.count = 0
+
+            while self.count + self.batch_size < len(self.major_indices):
+
+                # 多数派データ(major_indices)からは順番に選び出し
+                indices = self.major_indices[self.used_indices:self.used_indices + self.n_samples].tolist()
+
+                # 少数派データ(minor_indices)からはランダムに選び出す操作を繰り返す
+                for minor_indices in self.minor_indices_list:
+                    indices = indices + np.random.choice(minor_indices, self.n_samples, replace=False).tolist()
+
+                yield self.features[indices], self.labels[indices]#yield torch.tensor(self.features[indices]), torch.tensor(self.labels[indices])
+
+                self.used_indices += self.n_samples
+                self.count += self.n_samples * self.n_class
