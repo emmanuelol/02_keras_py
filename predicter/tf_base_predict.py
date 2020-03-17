@@ -619,7 +619,7 @@ def multiclass_roc_auc_score(y_test, y_pred, average="macro"):
 
 def get_metrics_from_score_dir(score_dir:str, mask_value=-1.0):
     """
-    予測結果ディレクトリのtsvファイルからラベルの数と分類の評価指標(accやroc_aucなど)を計算する
+    予測結果ディレクトリのtsvファイルからラベルの数と2値分類の評価指標(accやroc_aucなど)を計算する
     計算結果のcsvファイル(metrics.csv)を予測結果ディレクトリに出力する
     Args:
         score_dir:予測結果ディレクトリ
@@ -649,26 +649,48 @@ def get_metrics_from_score_dir(score_dir:str, mask_value=-1.0):
 
         df_count['tsv'] = pathlib.Path(p).name
 
+        # accuracy(正解率) 予測が正しい(TP+TNの)割合
+        acc = metrics.accuracy_score(df['y_true'], df['y_pred'].round())
+        df_count['accuracy'] = round(acc, round_num)
+
+        # precision(適合率) 正例と予測（予測スコア0.5以上に）した中で何%が実際に正例か
+        precision = metrics.precision_score(df['y_true'], df['y_pred'].round())
+        df_count['precision'] = round(precision, round_num)
+
+        # recall(再現率) 実際の正例を何%正しく正例と予測（予測スコア0.5以上に）できたか
+        recall = metrics.recall_score(df['y_true'], df['y_pred'].round())
+        df_count['recall'] = round(recall, round_num)
+
+        # specificity(特異度) 実際の負例を何%正しく負例と予測（予測スコア0.5以上に）できたか
+        tn, fp, fn, tp = metrics.confusion_matrix(df['y_true'], df['y_pred'].round()).ravel()
+        df_count['specificity'] = round(tn / (tn+fp), round_num)
+
+        # F1-score precisionとrecallの調和平均。F1はTPのみ分子に入れて計算するから正例負例を対等に扱っていない
+        f1 = metrics.f1_score(df['y_true'], df['y_pred'].round())
+        df_count['f1'] = round(f1, round_num)
+
+        # roc_auc 正例と負例をランダムに選んだ時に、正例の予測値が負例の予測値より大きい確率
+        # aroc_ucは予測値の大小関係（ランキング）だけで決まる（例えば[0.1,0.2,0.9,0.7]と[0.01,0.05,0.99,0.77]は大小関係同じなのでroc_aucは等しくなる）
+        # 正例が非常に少ない場合は正例の予測値をどれだけ高確率側に寄せることができるかがaucに大きく影響するが、逆に負例の予測値の影響はあまり受けない
         roc_auc = metrics.roc_auc_score(df['y_true'], df['y_pred'])
         df_count['roc_auc'] = round(roc_auc, round_num)
 
         average_precision = metrics.average_precision_score(df['y_true'], df['y_pred'])
         df_count['pr_auc'] = round(average_precision, round_num)
 
-        acc = metrics.accuracy_score(df['y_true'], df['y_pred'].round())
-        df_count['accuracy'] = round(acc, round_num)
+        # マシューズ相関係数
+        # 正例負例を同率に評価する（f1とは違いTNを使用する）ので不均衡なデータに対して適切に評価できる2値分類の指標
+        # + 1の係数は完全予測を表し、0は平均ランダム予測を表し、-1は逆予測
+        # 正例<<負例の場合はmccはpr_aucに近似できる
+        mcc = metrics.matthews_corrcoef(df['y_true'], df['y_pred'].round())
+        df_count['mcc'] = round(mcc, round_num)
 
-        precision = metrics.precision_score(df['y_true'], df['y_pred'].round())
-        df_count['precision'] = round(precision, round_num)
-
-        recall = metrics.recall_score(df['y_true'], df['y_pred'].round())
-        df_count['recall'] = round(recall, round_num)
-
-        tn, fp, fn, tp = metrics.confusion_matrix(df['y_true'], df['y_pred'].round()).ravel()
-        df_count['specificity'] = round(tn / (tn+fp), round_num)
-
-        f1 = metrics.f1_score(df['y_true'], df['y_pred'].round())
-        df_count['f1'] = round(f1, round_num)
+        # logloss(cross entropy)
+        # 正例である確率の対数をとり、符号を反転させた値
+        # 値が小さいほうが良い
+        # 実際は正例なのに正例の予測確率低い（FNのようなケース)や 正例の予測確率高いのに実際は負例（FPのようなケース)の場合値が大きくなる
+        logloss = metrics.log_loss(df['y_true'], df['y_pred'].round())
+        df_count['logloss'] = round(logloss, round_num)
 
         if df_count_concat is None:
             df_count_concat = df_count
@@ -676,9 +698,9 @@ def get_metrics_from_score_dir(score_dir:str, mask_value=-1.0):
             df_count_concat = pd.concat([df_count_concat, df_count], ignore_index=True)
 
     if mask_value is not None:
-        df_count_concat = df_count_concat[['tsv', 'accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc', 'pr_auc', 0.0, 1.0, mask_value]]
+        df_count_concat = df_count_concat[['tsv', 'accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc', 'pr_auc', 'mcc', 'logloss', 0.0, 1.0, mask_value]]
     else:
-        df_count_concat = df_count_concat[['tsv', 'accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc', 'pr_auc', 0.0, 1.0]]
+        df_count_concat = df_count_concat[['tsv', 'accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc', 'pr_auc', 'mcc', 'logloss', 0.0, 1.0]]
     #display(df_count_concat)
 
     out_csv = os.path.join(score_dir, 'metrics.csv')
