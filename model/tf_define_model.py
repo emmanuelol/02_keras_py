@@ -25,6 +25,7 @@ Usage:
 import os, sys
 import numpy as np
 
+import tensorflow as tf
 from tensorflow import keras
 
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
@@ -776,6 +777,20 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
     save_architecture(orig_model, output_dir)
 
     return model, orig_model
+
+def add_label_injection_layer(model, labels:list):
+    """
+    ラベル名を返す出力層を取り付ける（固定のラベル名を返す分岐を作る）
+    参考: https://stackoverflow.com/questions/38971293/get-class-labels-from-keras-functional-model
+    Args:
+        model:モデルオブジェクト
+        labels:ラベル名のリスト
+    """
+    tf_labels = tf.constant([labels],dtype="string")
+    tf_labels = tf.tile(tf_labels, [tf.shape(model.input)[0],1])
+    output_labels = keras.layers.Lambda(lambda x: tf_labels, name="label_injection")(model.input)
+    label_injection_model = keras.models.Model(model.input, [model.output, output_labels])
+    return label_injection_model
 
 def change_l2_softmax_net(model, alpha=16):
     """
