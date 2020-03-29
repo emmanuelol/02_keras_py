@@ -1,6 +1,6 @@
 import tensorflow as tf
-from keras import backend as K
-from keras.optimizers import Optimizer
+from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import Optimizer
 
 
 class AdaBound(Optimizer):
@@ -30,7 +30,7 @@ class AdaBound(Optimizer):
 
     def __init__(self, lr=0.001, final_lr=0.1, beta_1=0.9, beta_2=0.999, gamma=1e-3,
                  epsilon=None, decay=0., amsbound=False, weight_decay=0.0, **kwargs):
-        super(AdaBound, self).__init__(**kwargs)
+        super(AdaBound, self).__init__(name='AdaBound', **kwargs)
 
         if not 0. <= gamma <= 1.:
             raise ValueError("Invalid `gamma` parameter. Must lie in [0, 1] range.")

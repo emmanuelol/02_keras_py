@@ -8,8 +8,10 @@ __all__ = [
     'metrics', 'models', 'losses', 'optimizers', 'regularizers', 'TF_KERAS', 'EAGER_MODE'
 ]
 
-TF_KERAS = False
+TF_KERAS = True
 EAGER_MODE = False
+os.environ['TF_KERAS'] = str(int(TF_KERAS))
+os.environ['EAGER_MODE'] = str(int(EAGER_MODE))
 
 if strtobool(os.environ.get('TF_KERAS', '0')):
     import tensorflow as tf

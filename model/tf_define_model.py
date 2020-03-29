@@ -539,13 +539,8 @@ def get_optimizers(choice_optim='sgd', lr=0.0, decay=0.0
     elif choice_optim == 'adam':
         if lr == 0.0:
             lr=0.001
-        # keras 2.1.5 以上なら amsgrad あり
-        if int(keras.__version__.split('.')[1]) > 0 and int(keras.__version__.split('.')[2]) > 4:
-            optim = keras.optimizers.Adam(lr=lr, decay=decay, beta_1=beta_1, beta_2=beta_2, amsgrad=amsgrad)#, epsilon=epsilon)
-            print('adam_lr adam_decay beta_1 beta_2, amsgrad =', lr, decay, beta_1, beta_2, amsgrad)#, epsilon)
-        else:
-            optim = keras.optimizers.Adam(lr=lr, decay=decay, beta_1=beta_1, beta_2=beta_2)#, amsgrad=amsgrad, epsilon=epsilon)
-            print('adam_lr adam_decay beta_1 beta_2 =', lr, decay, beta_1, beta_2)#, epsilon)
+        optim = keras.optimizers.Adam(lr=lr, decay=decay, beta_1=beta_1, beta_2=beta_2, amsgrad=amsgrad)#, epsilon=epsilon)
+        print('adam_lr adam_decay beta_1 beta_2, amsgrad =', lr, decay, beta_1, beta_2, amsgrad)#, epsilon)
     elif choice_optim == 'adamax':
         if lr == 0.0:
             lr=0.002
@@ -696,6 +691,8 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
             x = keras.layers.GlobalAveragePooling2D(name='FC_avg')(x)
         elif fcpool=='GlobalMaxPooling2D':
             x = keras.layers.GlobalMaxPooling2D(name='FC_max')(x)
+        elif fcpool=='GeM2D':
+            x = GeM2D(name='FC_GeM')(x)
         print('----- FC_layers -----')
         if n_multitask == 1:
             # マルチクラス/マルチラベルの全結合層+出力層
@@ -777,6 +774,41 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
     save_architecture(orig_model, output_dir)
 
     return model, orig_model
+
+
+class GeM2D(tf.keras.layers.Layer):
+    """
+    下山さんのGeneralized Mean Pooling (GeM) <https://github.com/filipradenovic/cnnimageretrieval-pytorch>
+    https://github.com/ak110/pytoolkit/blob/657e38f7519877ab28f84647f10975e87681f2cd/pytoolkit/layers/pooling.py
+
+    Generalized Mean Pooling (GeM)：Poolingパラメータ(p)のべきを掛けたGlobal Average Pooling
+    p=1なら Global Average Pooling(GAP)
+    p=無限大ならGlobal Max pooling(GMP)
+    Poolingパラメータ(p)は手動で設定することも，学習することもできるみたい（この実装はデフォルト3で固定されている）
+    Global Average Poolingの代わりに使えばいい。論文では物体検出のmAPで特にGAP<GeMだった
+    """
+
+    def __init__(self, p=3, epsilon=1e-6, **kargs):
+        super().__init__(**kargs)
+        self.p = p
+        self.epsilon = epsilon
+
+    def compute_output_shape(self, input_shape):
+        assert len(input_shape) == 4
+        return (input_shape[0], input_shape[3])
+
+    def call(self, inputs, **kwargs):
+        del kwargs
+        x = tf.math.maximum(inputs, self.epsilon) ** self.p
+        x = tf.math.reduce_mean(x, axis=(1, 2))  # GAP
+        x = x ** (1 / self.p)
+        return x
+
+    def get_config(self):
+        config = {"p": self.p, "epsilon": self.epsilon}
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
 
 def add_label_injection_layer(model, labels:list):
     """
