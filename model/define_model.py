@@ -638,7 +638,7 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
         pred_l2_rate:出力層のl2正則化
         activation:出力層の活性化関数
         gpu_count:使うGPUの数。2以上ならマルチGPUでtrain
-        skip_bn:BatchNormalizationだけは必ず重み更新するか
+        skip_bn:BatchNormalizationの重みフリーズするか
         n_multitask:タスク数。2以上なら全結合層を分岐させてマルチタスクにする
         multitask_pred_n_node:マルチタスクの各タスクの出力層のnode数
         is_imagenet_model_save:imagenetのmodelファイル保存するか
@@ -738,25 +738,26 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
     if trainable == 'all':
         # 全レイヤーアンフリーズにする（全ての重みを再学習させる）
         for layer in model.layers:
-            layer.trainable = True
+            # BatchNormalizationだけは重みフリーズ 下山さんコードより
+            # BatchNormパラメータをトレーニング中に凍結することで過学習抑えれるみたい
+            # https://arxiv.org/pdf/2003.08505.pdf
+            if skip_bn and isinstance(layer, keras.layers.BatchNormalization):
+                layer.trainable = False
+            else:
+                layer.trainable = True
     elif trainable == 0:
         # 全レイヤーフリーズ（重み学習させない）
         for layer in model.layers:
-            # BatchNormalizationだけは重み学習 下山さんコードより
-            if skip_bn and isinstance(layer, keras.layers.BatchNormalization):
-                layer.trainable = True
-            else:
-                layer.trainable = False
+            layer.trainable = False
     else:
         # Fine-tuning 特定のレイヤまでfine-tuning
         for layer in model.layers[:trainable]:
-            # BatchNormalizationだけは重み学習 下山さんコードより
-            if skip_bn and isinstance(layer, keras.layers.BatchNormalization):
-                layer.trainable = True
-            else:
-                layer.trainable = False
+            layer.trainable = False
         for layer in model.layers[trainable:]:
-            layer.trainable = True
+            if skip_bn and isinstance(layer, keras.layers.BatchNormalization):
+                layer.trainable = False
+            else:
+                layer.trainable = True
 
     # train layer 確認
     #for i,layer in enumerate(model.layers):
