@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """自作metric"""
 
+import tensorflow as tf
+
 def get_lr_metric(optimizer):
     """
     エポックごとの学習率出力

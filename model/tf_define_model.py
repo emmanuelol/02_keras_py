@@ -22,7 +22,9 @@ Usage:
     # モデルコンパイル
     model.compile(loss='categorical_crossentropy', optimizer=optim, metrics=['accuracy'])
 """
-import os, sys
+import os
+import sys
+import functools
 import numpy as np
 
 import tensorflow as tf
@@ -31,6 +33,7 @@ from tensorflow import keras
 # pathlib でモジュールの絶対パスを取得 https://chaika.hatenablog.com/entry/2018/08/24/090000
 import pathlib
 current_dir = pathlib.Path(__file__).resolve().parent # このファイルのディレクトリの絶対パスを取得
+from model import tf_pooling as pooling
 
 def save_architecture(model, output_dir):
     """モデルの構造保存"""
@@ -456,6 +459,106 @@ def show_attention_layer(retina_model, Xs:np.ndarray, ys=np.array([]), output_di
         fig.savefig(os.path.join(output_dir, 'attention_map.png'), dpi = 300)
 # --------------------------------------------------------------------------------------------------
 
+def create_kuzushiji_best_network(shape, num_classes, l2=1e-4) -> tf.keras.models.Model:
+    """
+    くずし字コンペの下山さんのネットワーク
+    40層くらいのResNet+Erase ReLU+MaxBlurPool+GeMPooling+その他諸々入ったオリジナルなやつ
+    https://github.com/ak110/probspace_ukiyoe/blob/master/model_baseline.py
+    Usage:
+        # train
+        model = define_model.create_kuzushiji_best_network([100, 100, 3], len(classes))
+        optim = define_model.get_optimizers(choice_optim, lr=lr)
+        model.compile(loss=loss, optimizer=optim, metrics=metrics)
+
+        # predict
+        load_model = keras.models.load_model(os.path.join(output_dir, 'val_loss_best.h5')
+                                            , custom_objects={'BlurPooling2D':pooling.BlurPooling2D
+                                            , 'GeM2D':pooling.GeM2D})
+        load_model.predict(X)
+    """
+    K = tf.keras.backend
+
+    conv2d = functools.partial(
+        tf.keras.layers.Conv2D,
+        kernel_size=3,
+        padding="same",
+        use_bias=False,
+        kernel_initializer="he_uniform",
+        kernel_regularizer=tf.keras.regularizers.l2(l2),
+    )
+    bn = functools.partial(
+        tf.keras.layers.BatchNormalization,
+        gamma_regularizer=tf.keras.regularizers.l2(l2),
+    )
+    act = functools.partial(tf.keras.layers.Activation, "relu")
+
+    def down(filters):
+        def layers(x):
+            in_filters = K.int_shape(x)[-1]
+            g = conv2d(in_filters // 8)(x)
+            g = bn()(g)
+            g = act()(g)
+            g = conv2d(in_filters, use_bias=True, activation="sigmoid")(g)
+            x = tf.keras.layers.multiply([x, g])
+            x = tf.keras.layers.MaxPooling2D(3, strides=1, padding="same")(x)
+            x = pooling.BlurPooling2D(taps=4)(x)
+            x = conv2d(filters)(x)
+            x = bn()(x)
+            return x
+
+        return layers
+
+    def blocks(filters, count):
+        def layers(x):
+            for _ in range(count):
+                sc = x
+                x = conv2d(filters)(x)
+                x = bn()(x)
+                x = act()(x)
+                x = conv2d(filters)(x)
+                # resblockのadd前だけgammaの初期値を0にする。 <https://arxiv.org/abs/1812.01187>
+                x = bn(gamma_initializer="zeros")(x)
+                x = tf.keras.layers.add([sc, x])
+            x = bn()(x)
+            x = act()(x)
+            return x
+
+        return layers
+
+    #inputs = x = tf.keras.layers.Input((None, None, 3)) # 入力層のサイズNoneでもいける
+    inputs = x = tf.keras.layers.Input((shape[0], shape[1], shape[2])) # Grad-CAMで入力層のサイズ使うから指定する
+    x = tf.keras.layers.concatenate(
+        [
+            conv2d(16, kernel_size=2, strides=2)(x),
+            conv2d(16, kernel_size=4, strides=2)(x),
+            conv2d(16, kernel_size=6, strides=2)(x),
+            conv2d(16, kernel_size=8, strides=2)(x),
+        ]
+    )  # 1/2
+    x = bn()(x)
+    x = act()(x)
+    x = tf.keras.layers.concatenate(
+        [
+            conv2d(64, kernel_size=2, strides=2)(x),
+            conv2d(64, kernel_size=4, strides=2)(x),
+        ]
+    )  # 1/4
+    x = bn()(x)
+    x = blocks(128, 2)(x)
+    x = down(256)(x)  # 1/8
+    x = blocks(256, 4)(x)
+    x = down(512)(x)  # 1/16
+    x = blocks(512, 4)(x)
+    x = down(512)(x)  # 1/32
+    x = blocks(512, 4)(x)
+    x = pooling.GeM2D()(x)
+    x = tf.keras.layers.Dense(
+        num_classes, kernel_regularizer=tf.keras.regularizers.l2(l2), name="logits",
+    )(x)
+    model = tf.keras.models.Model(inputs=inputs, outputs=x)
+    return model
+
+
 # ------------------------------------------ github optimizer ------------------------------------------
 def get_adabound(lr=0.001, final_lr=0.1, beta_1=0.9, beta_2=0.999, gamma=1e-3, epsilon=None, decay=0.0, amsbound=False, weight_decay=0.0):
     """
@@ -692,7 +795,9 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
         elif fcpool=='GlobalMaxPooling2D':
             x = keras.layers.GlobalMaxPooling2D(name='FC_max')(x)
         elif fcpool=='GeM2D':
-            x = GeM2D(name='FC_GeM')(x)
+            x = pooling.GeM2D(name='FC_GeM')(x)
+        elif fcpool=='BlurPooling2D':
+            x = pooling.BlurPooling2D(name='FC_Blur')(x)
         print('----- FC_layers -----')
         if n_multitask == 1:
             # マルチクラス/マルチラベルの全結合層+出力層
@@ -775,40 +880,6 @@ def get_fine_tuning_model(output_dir, img_rows, img_cols, channels, num_classes,
     save_architecture(orig_model, output_dir)
 
     return model, orig_model
-
-
-class GeM2D(tf.keras.layers.Layer):
-    """
-    下山さんのGeneralized Mean Pooling (GeM) <https://github.com/filipradenovic/cnnimageretrieval-pytorch>
-    https://github.com/ak110/pytoolkit/blob/657e38f7519877ab28f84647f10975e87681f2cd/pytoolkit/layers/pooling.py
-
-    Generalized Mean Pooling (GeM)：Poolingパラメータ(p)のべきを掛けたGlobal Average Pooling
-    p=1なら Global Average Pooling(GAP)
-    p=無限大ならGlobal Max pooling(GMP)
-    Poolingパラメータ(p)は手動で設定することも，学習することもできるみたい（この実装はデフォルト3で固定されている）
-    Global Average Poolingの代わりに使えばいい。論文では物体検出のmAPで特にGAP<GeMだった
-    """
-
-    def __init__(self, p=3, epsilon=1e-6, **kargs):
-        super().__init__(**kargs)
-        self.p = p
-        self.epsilon = epsilon
-
-    def compute_output_shape(self, input_shape):
-        assert len(input_shape) == 4
-        return (input_shape[0], input_shape[3])
-
-    def call(self, inputs, **kwargs):
-        del kwargs
-        x = tf.math.maximum(inputs, self.epsilon) ** self.p
-        x = tf.math.reduce_mean(x, axis=(1, 2))  # GAP
-        x = x ** (1 / self.p)
-        return x
-
-    def get_config(self):
-        config = {"p": self.p, "epsilon": self.epsilon}
-        base_config = super().get_config()
-        return dict(list(base_config.items()) + list(config.items()))
 
 
 def add_label_injection_layer(model, labels:list):
