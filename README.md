@@ -2,7 +2,7 @@
 My Library for creating image classification models for Windows(GeForce 1080)  
 
 ## Setup
-- Anaconda 4.4.10: https://www.anaconda.com/distribution/
+- Anaconda: https://www.anaconda.com/distribution/
 - NVIDIA Driver for GeForce 1080: http://www.nvidia.co.jp/Download/index.aspx?lang=jp
 <!--
 - Visual Studio 2015 Update 3(Visual Studio Community 2015 with Update 3): https://my.visualstudio.com/Downloads  
@@ -14,6 +14,7 @@ My Library for creating image classification models for Windows(GeForce 1080)
 -->
 ```bash
 $ conda env create --file ./02_keras_py.yml
+```
 <!--
 $ conda create -n tfgpu_py36_v4
 $ activate tfgpu_py36_v4
@@ -21,7 +22,7 @@ $ conda install python=3.6
 $ conda install -c anaconda tensorflow-gpu=1.13.1
 $ conda install -c conda-forge keras=2.2.4 lightgbm=2.2.3 scikit-learn=0.20.3 opencv=4.1.0 grpcio=1.16 numba=0.38.1 scipy=1.2.1 numpy=1.16.4 pandas jupyter Cython Pillow lxml Matplotlib tqdm future graphviz pydot pytest pyperclip networkx selenium beautifulsoup4 cssselect openpyxl pypdf2 python-docx requests tweepy textblob seaborn scikit-image imbalanced-learn colorlog sqlalchemy papermill shapely imageio git umap-learn plotly ipysheet bqplot rise bokeh jupyter_contrib_nbextensions yapf flask joblib alembic dill xlrd nose xlsxwriter lime dash rdkit line_profiler cx_oracle tifffile psutil isort flask-login optuna jupyterlab validators imgaug albumentations
 -->
-```
+
 
 ## Usage
 ```bash
