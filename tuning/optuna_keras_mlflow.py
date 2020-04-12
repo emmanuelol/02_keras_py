@@ -39,11 +39,7 @@ import tensorflow as tf
 import warnings
 warnings.filterwarnings("ignore")
 
-import keras
-from keras.backend import clear_session
-from keras.layers import Dense
-from keras.models import Sequential
-from keras.optimizers import SGD
+from tensorflow import keras
 import mlflow
 from sklearn.datasets import load_wine
 from sklearn.model_selection import train_test_split
@@ -173,25 +169,25 @@ class Objective(object):
             mlflow.log_metrics({"mean_squared_error": trial_value})# mlflowでmetric記録
 
     def create_model(self, num_features, params, trial):
-        model = Sequential()
+        model = keras.models.Sequential()
         model.add(
-            Dense(
+            keras.layers.Dense(
                 num_features,
                 activation="relu",
                 kernel_initializer="normal",
                 input_shape=(num_features,),
             )
         ),
-        model.add(Dense(16, activation="relu", kernel_initializer="normal"))
-        model.add(Dense(16, activation="relu", kernel_initializer="normal"))
-        model.add(Dense(1, kernel_initializer="normal", activation="linear"))
-        optimizer = SGD(**params)
+        model.add(keras.layers.Dense(16, activation="relu", kernel_initializer="normal"))
+        model.add(keras.layers.Dense(16, activation="relu", kernel_initializer="normal"))
+        model.add(keras.layers.Dense(1, kernel_initializer="normal", activation="linear"))
+        optimizer = keras.optimizers.SGD(**params)
         model.compile(loss="mean_squared_error", optimizer=optimizer)
         return model
 
     def objective(self, trial):
         # Clear clutter from previous Keras session graphs.
-        clear_session()
+        keras.backend.clear_session()
 
         params = self.get_trial_params(trial)
 
