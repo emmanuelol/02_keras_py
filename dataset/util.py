@@ -2,11 +2,14 @@
 """
 util関数群
 """
-import os, glob, pathlib
+import os
+import glob
+import pathlib
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+
 
 def find_all_files(directory):
     """再帰的にファイル・ディレクトリを探して出力するgenerator"""
@@ -15,7 +18,8 @@ def find_all_files(directory):
         for file in files:
             yield os.path.join(root, file)
 
-def file_count(path , search):
+
+def file_count(path, search):
     """ディレクトリ再帰的になめて<search>の文字持つファイルの数を返す"""
     files = glob.glob(os.path.join(path, '**'), recursive=True)
     newlist = []
@@ -23,6 +27,7 @@ def file_count(path , search):
         if search in l:
             newlist.append(l)
     return(len(newlist))
+
 
 def show_np_img(x, is_grayscale=False):
     """
@@ -34,16 +39,18 @@ def show_np_img(x, is_grayscale=False):
         plt.gray()
     plt.show()
 
+
 def show_file_img(img_path):
     """ファイルパスから画像データを表示させる"""
-    #画像の読み込み
+    # 画像の読み込み
     im = Image.open(img_path)
-    #画像をarrayに変換
+    # 画像をarrayに変換
     im_list = np.asarray(im)
-    #貼り付け
+    # 貼り付け
     plt.imshow(im_list)
-    #表示
+    # 表示
     plt.show()
+
 
 def show_file_crop_img(img_path, ymin, ymax, xmin, xmax, label=''):
     """ファイルパスから画像データを指定領域だけ表示させる"""
@@ -51,17 +58,19 @@ def show_file_crop_img(img_path, ymin, ymax, xmin, xmax, label=''):
     img_RGB = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     dst = img_RGB[ymin:ymax, xmin:xmax]
     plt.imshow(dst / 255.)
-    plt.title(str(label)+' '+str(dst.shape))
+    plt.title(str(label) + ' ' + str(dst.shape))
     plt.show()
+
 
 def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
     """画像ファイルを指定領域だけ切り抜き保存する"""
     img = Image.open(img_path)
-    crop_img = img.crop((int(xmin),int(ymin),int(xmax),int(ymax)))
+    crop_img = img.crop((int(xmin), int(ymin), int(xmax), int(ymax)))
     if out_dir is not None:
-        save_name = str(pathlib.Path(img_path).stem)+'_'+str(ymin)+'_'+str(ymax)+'_'+str(xmin)+'_'+str(xmax)+".jpg"
+        save_name = str(pathlib.Path(img_path).stem) + '_' + str(ymin) + '_' + str(ymax) + '_' + str(xmin) + '_' + str(xmax) + ".jpg"
         crop_img.save(os.path.join(out_dir, save_name))
     return crop_img
+
 
 def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None, is_gray=False):
     """
@@ -76,10 +85,10 @@ def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None, is_gray=Fals
         print("Num_Images: ", len(img_list))
     plt.figure(figsize=figsize)
     # 並べる画像の行数
-    rows = plot_num//5
-    if rows < plot_num/5.0:
+    rows = plot_num // 5
+    if rows < plot_num / 5.0:
         rows += 1
-    #print(f"rows: {rows}")
+    # print(f"rows: {rows}")
     for i in range(plot_num):
         if isinstance(img_list, np.ndarray):
             img = img_list[i]
@@ -89,24 +98,25 @@ def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None, is_gray=Fals
             if len(img.shape) == 2:
                 is_gray = True
             if is_gray == True:
-                img = plt.imread(img_list[i], 0) # 第二引数0でグレースケール画像として読み込む.
-        plt.subplot(rows, 5, i+1)
+                img = plt.imread(img_list[i], 0)  # 第二引数0でグレースケール画像として読み込む.
+        plt.subplot(rows, 5, i + 1)
         if is_gray == True:
-            plt.imshow(img, cmap="gray") # グレースケールで表示.
+            plt.imshow(img, cmap="gray")  # グレースケールで表示.
         else:
             plt.imshow(img)
         if labels is not None:
-            plt.title(str(labels[i])+'\n'+str(img.shape))
+            plt.title(str(labels[i]) + '\n' + str(img.shape))
         else:
             plt.title(img.shape)
         plt.xticks([])
         plt.yticks([])
         # 全件plotしたらbreak
-        if len(img_list) == i+1:
+        if len(img_list) == i + 1:
             break
     plt.tight_layout()
     plt.show()
     plt.clf()
+
 
 def find_img_files(path):
     """
@@ -118,9 +128,10 @@ def find_img_files(path):
     for pathname, dirnames, filenames in os.walk(path):
         for filename in filenames:
             # フィルタ処理
-            if filename.endswith('.png') or filename.endswith('.jpg') or filename.endswith('.PNG') or filename.endswith('.JPG'):
-                imagePaths.append(os.path.join(pathname,filename))
+            if filename.endswith('.png') or filename. endswith('.jpg') or filename.endswith('.PNG') or filename.endswith('.JPG'):
+                imagePaths.append(os.path.join(pathname, filename))
     return imagePaths
+
 
 def get_jpg_png_path_in_dir(dir):
     """
@@ -139,6 +150,7 @@ def get_jpg_png_path_in_dir(dir):
     files.extend(png_files)
     print('jpg_png_count:', len(files))
     return sorted(files)
+
 
 def resize_np_Nearest_Neighbor(img_np, n_resize):
     """
@@ -164,7 +176,7 @@ def ipywidgets_show_img(img_path_list, figsize=(9, 9), is_grayscale=False):
         print('index={}, img_path={}'.format(index, img_path))
         img = Image.open(img_path)
         img_array = np.asarray(img)
-        plt.figure(figsize=figsize) # 表示サイズ指定
+        plt.figure(figsize=figsize)  # 表示サイズ指定
         plt.imshow(img_array)
         if is_grayscale == True:
             plt.gray()
@@ -187,17 +199,16 @@ def creat_gif_from_images(output_gif_path, image_paths, duration=0.5):
             display(Image(data=f.read(), format='png'))
     """
     import imageio
-    kargs = { 'duration': duration } # gif画像のフレームレイト
+    kargs = {'duration': duration}  # gif画像のフレームレイト
     gif_images = []
     for filename in image_paths:
         gif_images.append(imageio.imread(filename))
     imageio.mimsave(output_gif_path, gif_images, **kargs)
 
-def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=42
-                      , is_umap=True, point_size=None, is_axis_off=True, is_show=True
-                      , n_neighbors=15, min_dist=0.1
-                      , perplexity=30.0
-                     ):
+
+def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=42,
+                      is_umap=True, point_size=None, is_axis_off=True, is_show=True,
+                      n_neighbors=15, min_dist=0.1, perplexity=30.0):
     """
     umap/tsneで次元削減した画像出力
     Args:
@@ -237,19 +248,20 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
         embedding = tsne_model.fit_transform(x_array)
 
     if y is None:
-        plt.scatter(embedding[:,0],embedding[:,1], s=point_size)
+        plt.scatter(embedding[:, 0], embedding[:, 1], s=point_size)
     else:
         # ラベル:y指定してplot点の色変える
-        plt.scatter(embedding[:,0],embedding[:,1], c=y, s=point_size, cmap=cm.tab10)
+        plt.scatter(embedding[:, 0], embedding[:, 1], c=y, s=point_size, cmap=cm.tab10)
         plt.colorbar()
     if is_axis_off == True:
-        plt.axis('off') # x,y軸表示させない
+        plt.axis('off')  # x,y軸表示させない
     if out_png is not None:
         plt.savefig(out_png)
     if is_show == True:
         plt.show()
-    plt.clf() # plotの設定クリアにする
+    plt.clf()  # plotの設定クリアにする
     return embedding
+
 
 def show_tile_img(images_4tensor):
     """
@@ -260,12 +272,13 @@ def show_tile_img(images_4tensor):
     """
     tile = None
     collage_n_x = int(np.sqrt(images_4tensor.shape[0]))
-    for i in range(images_4tensor.shape[0]//collage_n_x):
+    for i in range(images_4tensor.shape[0] // collage_n_x):
         if tile is None:
-            tile = np.hstack(images_4tensor[i*+collage_n_x:i*+collage_n_x+collage_n_x]) # np.hstackは水平方向積上げ
+            tile = np.hstack(images_4tensor[i*+collage_n_x: i*+collage_n_x + collage_n_x])  # np.hstackは水平方向積上げ
         else:
-            tile = np.vstack(( tile, np.hstack(images_4tensor[i*+collage_n_x:i*+collage_n_x+collage_n_x]) )) # np.vstackは垂直方向積上げ
+            tile = np.vstack((tile, np.hstack(images_4tensor[i*+collage_n_x: i*+collage_n_x + collage_n_x])))  # np.vstackは垂直方向積上げ
     show_np_img(tile)
+
 
 def resize_ndarray(x, input_shape=(380,380,3)):
     """
@@ -281,3 +294,50 @@ def resize_ndarray(x, input_shape=(380,380,3)):
     # PIL 形式から ndarray に変換する
     x = tensorflow.keras.preprocessing.image.img_to_array(img)
     return x
+
+
+def img2jpg(input_dir, output_dir):
+    """
+    PILで画像ファイルをjpg拡張子に変換する
+    https://qiita.com/hirohuntexp/items/05b7a81323dff7bdca9f
+    """
+    from PIL import Image
+    import os
+    import pathlib
+    from tqdm import tqdm
+
+    files = os.listdir(input_dir)
+    print(files)
+
+    for file in tqdm(files):
+        if file[-4:].lower() in [".png", ".tif", ".jpg", ".bmp"]:
+            input_im = Image.open(os.path.join(input_dir, file))
+            rgb_im = input_im.convert('RGB')
+            rgb_im.save(os.path.join(output_dir, pathlib.Path(file).stem + ".jpg"), quality=100)
+            print("transaction finished: " + file)
+
+
+def movie2gif(input_dir, output_dir):
+    """
+    MP4/AVIファイルをGIFに変換。1MB以下のMP4でもgifにするとファイルサイズが200MBぐらいになるので注意
+    https://gist.github.com/michaelosthege/cd3e0c3c556b70a79deba6855deb2cc8
+    """
+    import imageio
+    import os
+    import sys
+    import pathlib
+    from tqdm import tqdm
+
+    files = os.listdir(input_dir)
+    print(files)
+
+    for file in tqdm(files):
+        if file[-4:].lower() in [".mp4", ".avi"]:
+            reader = imageio.get_reader(os.path.join(input_dir, file))
+            fps = reader.get_meta_data()['fps']
+            with imageio.get_writer(os.path.join(output_dir, pathlib.Path(file).stem + ".gif"), fps=fps) as writer:
+                for i, im in enumerate(reader):
+                    sys.stdout.write("\rframe {0}".format(i))
+                    sys.stdout.flush()
+                    writer.append_data(im)
+            print("transaction finished: " + file)
