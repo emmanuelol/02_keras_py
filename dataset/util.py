@@ -341,3 +341,32 @@ def movie2gif(input_dir, output_dir):
                     sys.stdout.flush()
                     writer.append_data(im)
             print("transaction finished: " + file)
+
+
+def pd_targethist(df, target:str, output_dir=None, kind='hist', **kwards):
+    """
+    Pandasのpivot_table使ってカテゴリデータ（ラベル,目的変数やhueと呼ぶほうがしっくりくるかもしれません）
+    ごとに色分けしたヒストグラムを数値列(説明変数)ごとに作成する
+    →'posi','nega'だけみたいなラベル列が1列でそれ以外は数値列（説明変数）のデータフレームで各ラベルごと（posi,negaの2種）の分布をplotできる
+    https://own-search-and-study.xyz/2018/02/27/pandas%e3%81%a7%e7%9b%ae%e7%9a%84%e5%a4%89%e6%95%b0%e5%88%a5%e3%81%ab%e8%89%b2%e5%88%86%e3%81%91%e3%81%97%e3%81%9f%e3%83%92%e3%82%b9%e3%83%88%e3%82%b0%e3%83%a9%e3%83%a0%e3%82%92%e4%bd%9c%e6%88%90/
+    Args:
+        df:データフレーム
+        target:dfのカテゴリデータの列名。dfはtarget列以外は数値でないとエラーになる（ヒストグラムなので当たり前だが）
+        output_dir:出力ディレクトリ。グラフをファイル出力する場合はパス指定する
+        kind:df.plot()の引数kind。数値の分布を見るものなら指定可能。e.g: 'hist', 'box', 'kde'or'density'(カーネル密度推定:確率密度関数を推定)
+        **kwards:df.plot()の他の引数指定用。e.g: figsize=(20, 10), logy=True(y軸を対数にする), subplots=True(subplotにする), layout=(2, 2)(subplotで縦横2枚づつ並べる),
+    Usage:
+        import seaborn as sns
+        df = sns.load_dataset('iris')  # irisデータ
+        pd_targethist(df, 'species')  # ヒストグラム
+        pd_targethist(df, 'species', kind='box')  # 箱ひげグラフ
+        pd_targethist(df, 'species', kind='density')  # カーネル密度推定
+    """
+    import os
+    import pandas as pd
+    columns = df.columns[df.columns != target]
+    pdf = df.pivot_table(index=df.index, columns=target)
+    for column in columns:
+        ax = pdf.loc[:, column].plot(kind=kind, title=column, **kwards)
+        if output_dir is not None:
+            ax.get_figure().savefig(os.path.join(output_dir, column + ".png"))
