@@ -362,8 +362,6 @@ def pd_targethist(df, target:str, output_dir=None, kind='hist', **kwards):
         pd_targethist(df, 'species', kind='box')  # 箱ひげグラフ
         pd_targethist(df, 'species', kind='density')  # カーネル密度推定
     """
-    import os
-    import pandas as pd
     columns = df.columns[df.columns != target]
     pdf = df.pivot_table(index=df.index, columns=target)
     for column in columns:
