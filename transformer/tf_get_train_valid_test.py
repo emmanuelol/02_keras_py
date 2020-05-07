@@ -193,12 +193,11 @@ def get_dict_class_counts(label_array: np.ndarray, is_maximize_all_class=False, 
     return dict_class_counts
 
 
-def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, dict_class_counts, mode="OVER", random_state=71, is_plot=True):
+def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, mode="SMOTE", random_state=71, is_plot=True):
     """ imblearnでunder/over_sampling（各クラスのサンプル数を全クラスの最小/最大数になるまで減らす/増やす）
     Arges:
         X: 説明変数（numpy型の画像パス:np.array[a.img,b.img,…]や、numpy型の画像データ:[[0.2554,0.59285,…][…]]みたいなの）
         y: 目的変数（numpy型のクラスidのラベル。np.array[4,0,1,2,…]みたいなの）
-        dict_class_counts: {0:200, 1:300, 2:500, …}のようにクラスid:クラスidのサンプル数の辞書.クラスidのサンプル数になるようにsamplingする
         mode: "OVER"ならRandomOverSampler. "UNDER"ならRandomUnderSampler. "SMOTE"ならSMOTE
         random_state: under/over_samplingでつかう乱数シード
         is_plot: Trueならunder/over_sampling後の各クラスの分布を棒グラフで可視化する
@@ -218,20 +217,23 @@ def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, dict_class_counts
     if len(X.shape) == 4:
         X_img = copy.deepcopy(X) # 参照でなく複製
         X = np.array([xidx for xidx in range(len(X))])# Xを画像idにする
-        #print(X)
+        # print(X)
 
-    def _sampling(dict_class_counts, mode, random_state):
+    def _sampling(mode, random_state):
         if mode == "OVER":
-            sample = RandomOverSampler(random_state=random_state)#sample = RandomOverSampler(ratio=dict_class_counts, random_state=random_state)
+            # Oversampling:少なすぎるクラスを増やす
+            sample = RandomOverSampler(random_state=random_state)  # sample = RandomOverSampler(ratio=dict_class_counts, random_state=random_state)
         if mode == "UNDER":
-            sample = RandomUnderSampler(random_state=random_state)#sample = RandomUnderSampler(ratio=dict_class_counts, random_state=random_state)
-        # SMOTEはうまくいかず
-        #if mode == "SMOTE":
-        #    sample = SMOTE(ratio=dict_class_counts, random_state=random_state)
+            # Undersampling:多すぎるクラスを減らす
+            sample = RandomUnderSampler(random_state=random_state)  # sample = RandomUnderSampler(ratio=dict_class_counts, random_state=random_state)
+        if mode == "SMOTE":
+            # SMOTE:不均衡データに対して、少ない方のデータを人工的に生成して、均衡データに近づけるという手法
+            # SMOTEの線形補完するサンプル数:k_neighbors<少数ラベルのサンプル数でないとエラーになる
+            sample = SMOTE(random_state=random_state, k_neighbors=pd.Series(y).value_counts().values.min() - 1)  # ratio='auto' or sampling_strategy='auto', k_neighbors=5,
         return sample
 
-    def _imblearn_sampling(X, y, dict_class_counts, mode, random_state, is_plot):
-        sample = _sampling(dict_class_counts, mode, random_state)
+    def _imblearn_sampling(X, y, mode, random_state, is_plot):
+        sample = _sampling(mode, random_state)
         X_resampled, y_resampled = sample.fit_sample(pd.DataFrame(X), y)
 
         if is_plot == True:
@@ -245,7 +247,7 @@ def imblearn_under_over_sampling(X: np.ndarray, y: np.ndarray, dict_class_counts
 
         return X_resampled, y_resampled
 
-    X_resampled, y_resampled = _imblearn_sampling(X, y, dict_class_counts, mode, random_state, is_plot)
+    X_resampled, y_resampled = _imblearn_sampling(X, y, mode, random_state, is_plot)
 
     # Xが四次元ベクトルの画像データの場合
     if X_img is not None:
