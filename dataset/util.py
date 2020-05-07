@@ -380,6 +380,38 @@ def delete_outlier_3sigma(df: pd.DataFrame, col: str) -> pd.DataFrame:
     return df[(abs(df[col] - np.mean(df[col])) / np.std(df[col]) <= 3)].reset_index()
 
 
+def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> pd.DataFrame:
+    """
+    データフレームの指定列について、PCAで次元削減
+    Usage:
+        import seaborn as sns
+        df = sns.load_dataset('iris')
+        pca_df_cols(df, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'])
+    """
+    import seaborn as sns
+    from sklearn.decomposition import PCA
+
+    pca = PCA(n_components=n_components)  # n_componentsに、主成分分析で変換後の次元数を設定
+
+    # 主成分分析を実行. pcaに主成分分析の変換パラメータが保存され、返り値に主成分分析後の値が返される
+    _ = pca.fit_transform(df[cols])
+
+    # 累積寄与率と寄与率の確認
+    print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
+    print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
+
+    # predict関数を利用し、同じ次元圧縮処理を実行
+    df_pca = pd.DataFrame(pca.transform(df[cols]), columns=range(n_components))
+
+    # pcaの散布図可視化
+    if is_plot and n_components == 2:
+        sns.set(style="darkgrid")
+        sns.jointplot(x=df_pca.columns[0], y=df_pca.columns[1], data=df_pca, kind='reg')
+        plt.show()
+
+    return df_pca
+
+
 def test_func():
     """
     テスト駆動開発での関数のテスト関数
@@ -391,3 +423,4 @@ def test_func():
     import seaborn as sns
     df = sns.load_dataset('iris')
     assert df.shape[0] > delete_outlier_3sigma(df, 'sepal_width').shape[0]  # assertでテストケースチェックしていく. Trueなら何もしない
+    assert pca_df_cols(df, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'], is_plot=False).shape[1] == 2
