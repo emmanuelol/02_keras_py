@@ -534,6 +534,7 @@ def load_one_img(img_file_path, img_rows, img_cols, is_grayscale=False):
     X = x / 255.0# 前処理
     return X
 
+
 def get_folds(X, y, cv_count, split_seed, stratify=None):
     """Cross validationのインデックスを返す。
     https://github.com/ak110/pytoolkit/blob/5f663d324c965726dab6ae97097552c723cf03a5/pytoolkit/ml.py
@@ -580,6 +581,53 @@ def get_folds(X, y, cv_count, split_seed, stratify=None):
     folds = list(cv.split(X, y))
     return folds
 
+
+def get_folds_time_series(df: pd.DataFrame, date_col: str, train_len=24, test_len=12, skip=12, is_train_period_fix=True):
+    """
+    時系列データにおけるモデル検証用のデータ分割
+    https://github.com/ghmagazine/awesomebook/blob/master/preprocess/005_split/02/python_awesome.py
+    Args:
+        df: CVに分けるデータフレーム
+        date_col: dfの時系列名
+        train_len: 学習データのデータ数。24なら24レコードが各CVのtrainデータになる
+        test_len: 検証データのデータ数。12なら12レコードが各CVのtestデータになる
+        skip: 各CVごとにスライドする（ずらす）データ数
+        is_train_period_fix: 各CVで学習期間を一定にするか。FalseならCV増やすにつれ、一つ前のCVの学習データも含める
+    Returns:
+        train_dfs: trainデータだけのdfのリスト
+        test_dfs: testデータだけのdfのリスト
+    Usage:
+        train_dfs, test_dfs = time_series_train_test_split(df, 'year_month')
+        train_cv1, test_cv1 = train_dfs[0], test_dfs[0]
+    """
+    # 年月に基づいてデータを並び替え
+    df = df.sort_values(by=date_col)
+
+    train_dfs = []
+    test_dfs = []
+    train_window_start = 0
+    train_window_end = train_len
+    while True:# 検証データの終了行番号を計算
+        test_window_end = train_window_end + test_len
+
+        # 行番号を指定して、元データから学習データを取得
+        train_dfs.append(df[train_window_start: train_window_end])
+
+        # 行番号を指定して、元データから検証データを取得
+        test_dfs.append(df[train_window_end: test_window_end])
+
+        # 検証データの終了行番号が元データの行数以上になっているか判定
+        if test_window_end >= len(df.index):
+            break  # 全データを対象にした場合終了
+
+        # データをスライドさせる
+        if is_train_period_fix:
+            train_window_start += skip  # 各CVで学習期間を一定にする(各CVで学習データのデータ数同じにする)
+        train_window_end += skip
+
+    return train_dfs, test_dfs
+
+
 def print_image_generator(gen, i=0):
     """
     ImageDataGeneratorの1batdh分画像とラベルをprintで確認する
@@ -611,6 +659,7 @@ def print_image_generator(gen, i=0):
             plt.imshow(x[ii])
             plt.grid(False)
             plt.show()
+
 
 def label_smoothing_generator(data_generator, smooth_factor=0.1, mask_value=-1.0, is_multi_class=True):
     """
@@ -644,6 +693,7 @@ def label_smoothing_generator(data_generator, smooth_factor=0.1, mask_value=-1.0
         for i,y_i in enumerate(y):
             smooth_y[i] = _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class)
         yield x, smooth_y
+
 
 def label2onehot(labels:np.ndarray):
     """
