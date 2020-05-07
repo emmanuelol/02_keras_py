@@ -8,6 +8,7 @@ import pathlib
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import cv2
 
 
@@ -343,7 +344,7 @@ def movie2gif(input_dir, output_dir):
             print("transaction finished: " + file)
 
 
-def pd_targethist(df, target:str, output_dir=None, kind='hist', **kwards):
+def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
     """
     Pandasのpivot_table使ってカテゴリデータ（ラベル,目的変数やhueと呼ぶほうがしっくりくるかもしれません）
     ごとに色分けしたヒストグラムを数値列(説明変数)ごとに作成する
@@ -368,3 +369,25 @@ def pd_targethist(df, target:str, output_dir=None, kind='hist', **kwards):
         ax = pdf.loc[:, column].plot(kind=kind, title=column, **kwards)
         if output_dir is not None:
             ax.get_figure().savefig(os.path.join(output_dir, column + ".png"))
+
+
+def delete_outlier_3sigma(df: pd.DataFrame, col: str) -> pd.DataFrame:
+    """
+    データフレームの指定列について、外れ値(3σ以上のデータ)削除
+    Usage:
+        df = delete_outlier_3sigma(df, 'value')
+    """
+    return df[(abs(df[col] - np.mean(df[col])) / np.std(df[col]) <= 3)].reset_index()
+
+
+def test_func():
+    """
+    テスト駆動開発での関数のテスト関数
+    test用関数はpythonパッケージの nose で実行するのがおすすめ($ conda install -c conda-forge nose などでインストール必要)
+    →noseは再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行する
+    $ cd <このモジュールの場所>
+    $ nosetests -v util.py  # 再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行
+    """
+    import seaborn as sns
+    df = sns.load_dataset('iris')
+    assert df.shape[0] > delete_outlier_3sigma(df, 'sepal_width').shape[0]  # assertでテストケースチェックしていく. Trueなら何もしない
