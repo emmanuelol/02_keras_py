@@ -412,6 +412,29 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
     return df_pca
 
 
+def drop_fillna_df_col(df: pd.DataFrame, col: str, how='delete') -> pd.DataFrame:
+    """
+    データフレームの指定列について、欠損値置換
+    - how='delete'なら欠損値持つレコード削除
+    - how=定数ならその値で欠損値置換
+    - how='mean'なら平均値で欠損値置換.列の値が数値でないとエラー
+    Usage:
+        import seaborn as sns
+        df = sns.load_dataset('titanic')
+        _df = drop_fillna_df_col(df , 'age', how='delete')
+        _df = drop_fillna_df_col(df , 'age', how='mean')
+        _df = drop_fillna_df_col(df , 'age', how=0)
+    """
+    df = df.replace('None', np.nan)  # dropnaはNone置換できないので置き換える
+    if how == 'delete':
+        df = df.dropna(subset=[col])
+    elif how == 'mean':
+        df[col] = df[col].fillna(df[col].astype('float64').mean())  # 数値型の列でないので平均値とれないので注意
+    else:
+        df[col] = df[col].fillna(how)
+    return df
+
+
 def test_func():
     """
     テスト駆動開発での関数のテスト関数
@@ -421,6 +444,18 @@ def test_func():
     $ nosetests -v util.py  # 再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行
     """
     import seaborn as sns
-    df = sns.load_dataset('iris')
-    assert df.shape[0] > delete_outlier_3sigma(df, 'sepal_width').shape[0]  # assertでテストケースチェックしていく. Trueなら何もしない
-    assert pca_df_cols(df, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'], is_plot=False).shape[1] == 2
+    df_titanic = sns.load_dataset('titanic')
+    df_iris = sns.load_dataset('iris')
+
+    # assertでテストケースチェックしていく. Trueなら何もしない
+
+    # delete_outlier_3sigma()
+    assert df_iris.shape[0] > delete_outlier_3sigma(df_iris, 'sepal_width').shape[0]
+
+    # pca_df_cols()
+    assert pca_df_cols(df_iris, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'], is_plot=False).shape[1] == 2
+
+    # drop_fillna_df_col
+    assert drop_fillna_df_col(df_titanic, 'age', how='delete')['age'].isnull().all() == False
+    assert drop_fillna_df_col(df_titanic, 'age', how='mean')['age'].isnull().all() == False
+    assert drop_fillna_df_col(df_titanic, 'age', how=0)['age'].dtype.name == 'float64'
