@@ -371,13 +371,49 @@ def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
             ax.get_figure().savefig(os.path.join(output_dir, column + ".png"))
 
 
-def delete_outlier_3sigma(df: pd.DataFrame, col: str) -> pd.DataFrame:
+def normalize_df_cols(df: pd.DataFrame, cols: list, normal='standard') -> pd.DataFrame:
+    """
+    データフレームの指定列について、正規化
+    Usage:
+        df = normalize_df_cols(df, ['value'])
+        df = normalize_df_cols(df, ['value'], normalization='minmax')
+    """
+    from sklearn.preprocessing import StandardScaler  # 平均0、分散1に変換する正規化（標準化）
+    from sklearn.preprocessing import MinMaxScaler  # 最小値0、最大値1にする正規化
+
+    # 正規化を行うオブジェクトを生成
+    if normal == 'standard':
+        scaler = StandardScaler()
+    elif normal == 'minmax':
+        scaler = MinMaxScaler()
+
+    # 数値列の列名だけにする
+    cols = [col for col in cols if df[col].dtype.name not in ['object', 'category', 'bool']]
+
+    for col in cols:
+        # 数値型の列なら実行
+        df[col] = df[col].astype(float)  # 少数点以下を扱えるようにするためfloat型に変換
+
+    # fit_transform関数は、fit関数（正規化するための前準備の計算）とtransform関数（準備された情報から正規化の変換処理を行う）
+    df_scaler = pd.DataFrame(scaler.fit_transform(df[cols]), columns=cols)
+
+    for col in cols:
+        df[col] = df_scaler[col]
+
+    return df
+
+
+def delete_outlier_3sigma_df_cols(df: pd.DataFrame, cols: list) -> pd.DataFrame:
     """
     データフレームの指定列について、外れ値(3σ以上のデータ)削除
     Usage:
-        df = delete_outlier_3sigma(df, 'value')
+        df = delete_outlier_3sigma_df_cols(df, ['value', 'value2'])
     """
-    return df[(abs(df[col] - np.mean(df[col])) / np.std(df[col]) <= 3)].reset_index()
+    for col in cols:
+        if df[col].dtype.name not in ['object', 'category', 'bool']:
+            # 数値型の列なら実行
+            df = df[(abs(df[col] - np.mean(df[col])) / np.std(df[col]) <= 3)].reset_index(drop=True)
+    return df
 
 
 def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> pd.DataFrame:
@@ -392,6 +428,9 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
     from sklearn.decomposition import PCA
 
     pca = PCA(n_components=n_components)  # n_componentsに、主成分分析で変換後の次元数を設定
+
+    # 数値列の列名だけにする
+    cols = [col for col in cols if df[col].dtype.name not in ['object', 'category', 'bool']]
 
     # 主成分分析を実行. pcaに主成分分析の変換パラメータが保存され、返り値に主成分分析後の値が返される
     _ = pca.fit_transform(df[cols])
@@ -412,50 +451,128 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
     return df_pca
 
 
-def drop_fillna_df_col(df: pd.DataFrame, col: str, how='delete') -> pd.DataFrame:
+def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFrame:
     """
     データフレームの指定列について、欠損値置換
     - how='delete'なら欠損値持つレコード削除
     - how=定数ならその値で欠損値置換
-    - how='mean'なら平均値で欠損値置換.列の値が数値でないとエラー
+    - how='mean'なら平均値で欠損値置換.列(col)の値が数値でないとエラー
+    - how='knn'ならk近傍法で欠損値置換.列(col)の値が文字列などカテゴリ型でないとエラー
     Usage:
         import seaborn as sns
         df = sns.load_dataset('titanic')
-        _df = drop_fillna_df_col(df , 'age', how='delete')
-        _df = drop_fillna_df_col(df , 'age', how='mean')
-        _df = drop_fillna_df_col(df , 'age', how=0)
+        _df = drop_fillna_df_col(df, ['age'], how='delete')
+        _df = drop_fillna_df_col(df, ['age'], how='mean')
+        _df = drop_fillna_df_col(df, ['age'], how=0)
+        _df = drop_fillna_df_col(df, ['deck'], how='knn')
     """
+    from sklearn.neighbors import KNeighborsClassifier
+
     df = df.replace('None', np.nan)  # dropnaはNone置換できないので置き換える
-    if how == 'delete':
-        df = df.dropna(subset=[col])
-    elif how == 'mean':
-        df[col] = df[col].fillna(df[col].astype('float64').mean())  # 数値型の列でないので平均値とれないので注意
-    else:
-        df[col] = df[col].fillna(how)
+
+    for col in cols:
+        if how == 'delete':
+            df = df.dropna(subset=[col])
+
+        elif how == 'mean':
+            if df[col].dtype.name not in ['object', 'category', 'bool']:
+                # 数値型の列でないので平均値とれない
+                df[col] = df[col].fillna(df[col].astype('float64').mean())
+            else:
+                print(f'{col}列は数値型の列でないので平均値とれません')
+
+        elif how == 'knn':
+            if df[col].dtype.name in ['object', 'category', 'bool'] and df[col].isnull().any():
+                # 数値型の列なら実行
+                train = df.dropna(subset=[col])  # 欠損していないデータの抽出
+                test = df.loc[df.index.difference(train.index), :]  # 欠損しているデータの抽出
+                integer_cols = [col for col in train.columns \
+                                if train[col].dtype.name not in ['object', 'category', 'bool'] \
+                                and train[col].isnull().any() == False]  # 数値列かつ欠損が無い列名取得。説明変数として使う列
+
+                assert len(integer_cols) > 0, '説明変数の数値型の列がないのでknnできません'
+                # print(integer_cols)
+
+                # knnモデル生成。近傍のサンプル数はクラス数+1にしておく（適当）
+                kn = KNeighborsClassifier(n_neighbors=len(train[col].unique()) + 1)
+                # モデル学習
+                kn.fit(train[integer_cols], train[col])
+                # knnモデルによって予測値を計算し、typeを補完
+                test[col] = kn.predict(test[integer_cols])
+
+                df = pd.concat([train, test]).sort_index()
+            else:
+                print(f'{col}列は文字型orカテゴリ型の列でない もしくは 欠損値が無いのでknnできません')
+
+        else:
+            if df[col].dtype.name not in ['category', 'bool']:
+                # 文字列か数値型の列なら実行
+                df[col] = df[col].fillna(how)
+            else:
+                print(f'{col}列はブール型orカテゴリ型の列なので指定文字で置換できません')
+
+    return df
+
+
+def summarize_df_category_col(df: pd.DataFrame, col: str, new_category, summarize_categories: list) -> pd.DataFrame:
+    """
+    データフレームの指定カテゴリ列について、カテゴリ値を集約する（例.「60,70,80」の3カテゴリを「60以上」だけにする）
+    Usage:
+        import seaborn as sns
+        df = sns.load_dataset('titanic')
+        df = df.replace('None', np.nan).dropna(subset=['age'])
+        df['age_rank'] = np.floor(df['age']/10)*10
+        df = summarize_df_category_col(df, 'age_rank', '60以上', [60.0, 70.0, 80.0])
+    """
+    df[col] = df[col].astype('category')  # カテゴリ型に変換
+
+    # マスタデータにnew_categoryを追加
+    df[col] = df[col].cat.add_categories(new_category)
+
+    # 集約するデータを書き換え。category型は、=または!=の判定のみ可能なので、isin関数を利用
+    df.loc[df[col].isin(summarize_categories), col] = new_category
+
+    # 利用されていないマスタデータを削除
+    df[col] = df[col].cat.remove_unused_categories()
+
     return df
 
 
 def test_func():
     """
-    テスト駆動開発での関数のテスト関数
+    テスト駆動開発でのテスト関数
     test用関数はpythonパッケージの nose で実行するのがおすすめ($ conda install -c conda-forge nose などでインストール必要)
     →noseは再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行する
     $ cd <このモジュールの場所>
-    $ nosetests -v util.py  # 再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行
+    $ nosetests -v -s util.py  # 再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行。-s付けるとprint()の内容出してくれる
     """
     import seaborn as sns
-    df_titanic = sns.load_dataset('titanic')
-    df_iris = sns.load_dataset('iris')
 
     # assertでテストケースチェックしていく. Trueなら何もしない
 
-    # delete_outlier_3sigma()
-    assert df_iris.shape[0] > delete_outlier_3sigma(df_iris, 'sepal_width').shape[0]
+    # normalize_df_cols
+    df_titanic = sns.load_dataset('titanic')
+    assert int(normalize_df_cols(df_titanic, df_titanic.columns)['age'].mean()) == 0
+    assert int(normalize_df_cols(df_titanic, df_titanic.columns, normal='minmax')['age'].max()) == 1
+
+    # delete_outlier_3sigma_df_cols()
+    df_iris = sns.load_dataset('iris')
+    assert df_iris.shape[0] > delete_outlier_3sigma_df_cols(df_iris, df_iris.columns).shape[0]
 
     # pca_df_cols()
-    assert pca_df_cols(df_iris, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'], is_plot=False).shape[1] == 2
+    df_iris = sns.load_dataset('iris')
+    assert pca_df_cols(df_iris, df_iris.columns, is_plot=False).shape[1] == 2
 
     # drop_fillna_df_col
-    assert drop_fillna_df_col(df_titanic, 'age', how='delete')['age'].isnull().all() == False
-    assert drop_fillna_df_col(df_titanic, 'age', how='mean')['age'].isnull().all() == False
-    assert drop_fillna_df_col(df_titanic, 'age', how=0)['age'].dtype.name == 'float64'
+    df_titanic = sns.load_dataset('titanic')
+    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how='delete')['age'].isnull().all() == False
+    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how='mean')['age'].isnull().all() == False
+    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how=0)['age'].dtype.name == 'float64'
+    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how='knn')['deck'].isnull().all() == False
+
+    # summarize_df_category_col()
+    df_titanic = sns.load_dataset('titanic')
+    df_titanic = df_titanic.replace('None', np.nan).dropna(subset=['age'])
+    df_titanic['age_rank'] = np.floor(df_titanic['age'] / 10) * 10
+    assert summarize_df_category_col(df_titanic, 'age_rank', '60以上', [60.0, 70.0, 80.0]) \
+           ['age_rank'].value_counts()['60以上'] > 0
