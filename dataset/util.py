@@ -458,6 +458,12 @@ def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFr
     - how=定数ならその値で欠損値置換
     - how='mean'なら平均値で欠損値置換.列(col)の値が数値でないとエラー
     - how='knn'ならk近傍法で欠損値置換.列(col)の値が文字列などカテゴリ型でないとエラー
+
+    ※そもそも欠損値補完というアプローチは、
+　      ・欠損値が多すぎるとそもそもまともに予測できないし、予測の悪さが大勢に影響を及ぼして全体のパフォーマンスを悪化させかねない
+　      ・欠損値が少ないならdropしても大勢に影響はない
+　  　という矛盾を抱えている訳ですが、そこそこの欠損があるときにdropするよりちょっと良くなるかな？という可能性を追求するためにあるものだと思います。
+
     Usage:
         import seaborn as sns
         df = sns.load_dataset('titanic')
