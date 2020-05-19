@@ -544,6 +544,27 @@ def summarize_df_category_col(df: pd.DataFrame, col: str, new_category, summariz
     return df
 
 
+def set_tf_random_seed(seed=0):
+    """
+    tensorflow v2.0の乱数固定
+    https://qiita.com/Rin-P/items/acacbb6bd93d88d1ca1b
+    ※tensorflow-determinism が無いとgpuについては固定できないみたい
+    　tensorflow-determinism はpipでしか取れない($ pip install tensorflow-determinism)ので未確認
+    """
+    import random
+    import numpy as np
+    import tensorflow as tf
+
+    ## ソースコード上でGPUの計算順序の固定を記述
+    #from tfdeterminism import patch
+    #patch()
+
+    # 乱数のseed値の固定
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)  # v1.0系だとtf.set_random_seed(seed)
+
+
 def test_func():
     """
     テスト駆動開発でのテスト関数
@@ -582,3 +603,6 @@ def test_func():
     df_titanic['age_rank'] = np.floor(df_titanic['age'] / 10) * 10
     assert summarize_df_category_col(df_titanic, 'age_rank', '60以上', [60.0, 70.0, 80.0]) \
            ['age_rank'].value_counts()['60以上'] > 0
+
+    # set_tf_random_seed()
+    set_tf_random_seed(seed=71)
