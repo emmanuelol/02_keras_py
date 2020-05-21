@@ -451,6 +451,58 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
     return df_pca
 
 
+def add_label_kmeans_pca(df: pd.DataFrame, n_clusters=4, normal='standard', is_pca=True) -> pd.DataFrame:
+    """
+    データフレーム全体をkmeansでクラスタリングしてラベル列追加。データフレームをPCAで次元削減して追加したラベルplot
+    Usage:
+        df = add_label_kmeans_pca(df)  # クラス名0,1,2,3の kmeans 列が追加される
+    """
+    import matplotlib.pyplot as plt
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler  # 平均0、分散1に変換する正規化（標準化）
+    from sklearn.preprocessing import MinMaxScaler  # 最小値0、最大値1にする正規化
+    from sklearn.decomposition import PCA
+
+    # 欠損レコード削除
+    df = df.replace('None', np.nan).dropna()
+
+    # 数値列の列名だけにする
+    cols = [col for col in df.columns if df[col].dtype.name not in ['object', 'category', 'bool']]
+
+    for col in cols:
+        # 数値型の列なら実行
+        df[col] = df[col].astype(float)  # 少数点以下を扱えるようにするためfloat型に変換
+
+    # 正規化
+    if normal == 'standard':
+        scaler = StandardScaler().fit_transform(df[cols])
+    elif normal == 'minmax':
+        scaler = MinMaxScaler().fit_transform(df[cols])
+    else:
+        scaler = df[cols].values
+
+    # kmeans
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+    clusters = kmeans.fit(scaler)
+    df["kmeans"] = clusters.labels_  # kmeansのラベル列追加
+
+    # pca
+    if is_pca:
+        X = scaler
+        pca = PCA(n_components=2)
+        pca.fit(X)
+        x_pca = pca.transform(X)
+        pca_df = pd.DataFrame(x_pca)
+        pca_df["kmeans"] = df["kmeans"]
+
+        for i in df["kmeans"].unique():
+            tmp = pca_df.loc[pca_df["kmeans"]==i]
+            plt.scatter(tmp[0], tmp[1])
+        plt.show()
+
+    return df
+
+
 def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFrame:
     """
     データフレームの指定列について、欠損値置換
@@ -458,12 +510,10 @@ def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFr
     - how=定数ならその値で欠損値置換
     - how='mean'なら平均値で欠損値置換.列(col)の値が数値でないとエラー
     - how='knn'ならk近傍法で欠損値置換.列(col)の値が文字列などカテゴリ型でないとエラー
-
     ※そもそも欠損値補完というアプローチは、
 　      ・欠損値が多すぎるとそもそもまともに予測できないし、予測の悪さが大勢に影響を及ぼして全体のパフォーマンスを悪化させかねない
 　      ・欠損値が少ないならdropしても大勢に影響はない
 　  　という矛盾を抱えている訳ですが、そこそこの欠損があるときにdropするよりちょっと良くなるかな？という可能性を追求するためにあるものだと思います。
-
     Usage:
         import seaborn as sns
         df = sns.load_dataset('titanic')
@@ -606,3 +656,8 @@ def test_func():
 
     # set_tf_random_seed()
     set_tf_random_seed(seed=71)
+
+    # add_label_kmeans_pca()
+    df_titanic = sns.load_dataset('titanic')
+    assert len(add_label_kmeans_pca(df_titanic, is_pca=False)['kmeans'].unique()) == 4
+    assert len(add_label_kmeans_pca(df_titanic, normal='', is_pca=False)['kmeans'].unique()) == 4
