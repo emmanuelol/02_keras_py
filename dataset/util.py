@@ -453,7 +453,7 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
 
 def add_label_kmeans_pca(df: pd.DataFrame, n_clusters=4, normal='standard', is_pca=True) -> pd.DataFrame:
     """
-    データフレーム全体をkmeansでクラスタリングしてラベル列追加。データフレームをPCAで次元削減して追加したラベルplot
+    データフレーム全体をkmeansでクラスタリングしてラベル列追加 + データフレームをPCAで次元削減して追加したラベルplot
     Usage:
         df = add_label_kmeans_pca(df)  # クラス名0,1,2,3の kmeans 列が追加される
     """
@@ -592,6 +592,25 @@ def summarize_df_category_col(df: pd.DataFrame, col: str, new_category, summariz
     df[col] = df[col].cat.remove_unused_categories()
 
     return df
+
+
+def plot_feature_importance(model, X):
+    """
+    決定木やランダムフォレストで使用された特徴量を可視化する
+    https://qiita.com/takapy0210/items/73415599579f2588080e
+    Usage:
+        # ランダムフォレスト
+        from sklearn.ensemble import RandomForestClassifier
+        forest = RandomForestClassifier(n_estimators=100, random_state=20181101) # n_estimatorsは構築する決定木の数
+        forest.fit(X_train, y_train)
+        # 表示
+        plot_feature_importance(forest, X_train)
+    """
+    n_features = X.shape[1]
+    plt.barh(range(n_features), model.feature_importances_, align='center')
+    plt.yticks(np.arange(n_features), X.columns)
+    plt.xlabel('Feature importance')
+    plt.ylabel('Feature')
 
 
 def set_tf_random_seed(seed=0):
