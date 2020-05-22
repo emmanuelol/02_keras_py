@@ -611,6 +611,7 @@ def plot_feature_importance(model, X):
     plt.yticks(np.arange(n_features), X.columns)
     plt.xlabel('Feature importance')
     plt.ylabel('Feature')
+    plt.show()
 
 
 def set_tf_random_seed(seed=0):
