@@ -9,17 +9,18 @@ htmlは以下の項目を表示
 
 Usage:
     # tsvのサマリーhtmlをtmpディレクトリに出力
-    $ summary_html_pandas_profiling.py \
+    $ python summary_html_pandas_profiling.py \
         --output_dir tmp \
         --input_file '/gpfsx01/home/aaa00162/jupyterhub/notebook/H3-058/work/data/represent/raw_represent_all.hERG_IC50.tsv'
 
     # エクセルの各シートのサマリーhtmlをtmpディレクトリに出力。シートごとにhtml出力。n_skiprowで各シートの先頭8行飛ばす
-    $ summary_html_pandas_profiling.py \
+    $ python summary_html_pandas_profiling.py \
         --output_dir tmp \
         --input_file '/gpfsx01/home/aaa00162/jupyterhub/notebook/H3-058/OrigData/US034-0004376_Appendix_2.xlsx' \
         --n_skiprow 8 \
 """
-import os, argparse
+import os
+import argparse
 import pandas as pd
 import pandas_profiling as pdp
 import pathlib
@@ -27,12 +28,13 @@ import openpyxl
 import warnings
 warnings.filterwarnings("ignore")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_file", type=str, required=True, help="input file path.")
-    parser.add_argument("--output_dir", type=str, default=None, help="html output dir path.")
-    parser.add_argument("--n_skiprow", type=int, default=None, help="number of rows to skip.")
-    parser.add_argument("--header", type=int, default=0, help="pd.read_csv arg header.")
+    parser.add_argument("-i", "--input_file", type=str, required=True, help="input file path.")
+    parser.add_argument("-o", "--output_dir", type=str, default=None, help="html output dir path.")
+    parser.add_argument("-n_s", "--n_skiprow", type=int, default=None, help="number of rows to skip.")
+    parser.add_argument("-n_h", "--n_header", type=int, default=0, help="pd.read_csv arg header.")
     args = parser.parse_args()
 
     path = args.input_file
@@ -49,12 +51,12 @@ if __name__ == "__main__":
         skiprows = range(args.n_skiprow)
 
     if str(pathlib.Path(path).suffix) in ['.txt', '.tsv']:
-        df = pd.read_csv(path, sep='\t', skiprows=skiprows, header=args.header)
+        df = pd.read_csv(path, sep='\t', skiprows=skiprows, header=args.n_header)
         profile = pdp.ProfileReport(df)
         profile.to_file(output_file=f"{output_dir}/{str(pathlib.Path(path).name)}_profile.html")
 
     if str(pathlib.Path(path).suffix) in ['.csv']:
-        df = pd.read_csv(path, skiprows=skiprows, header=args.header)
+        df = pd.read_csv(path, skiprows=skiprows, header=args.n_header)
         profile = pdp.ProfileReport(df)
         profile.to_file(output_file=f"{output_dir}/{str(pathlib.Path(path).name)}_profile.html")
 
@@ -64,7 +66,7 @@ if __name__ == "__main__":
         #print(sheets)
         for s in sheets:
             try:
-                df = pd.read_excel(path, sheet_name=s, skiprows=skiprows, header=args.header)
+                df = pd.read_excel(path, sheet_name=s, skiprows=skiprows, header=args.n_header)
                 #display(df.head())
                 for col in df.columns.tolist():
                     if 'Unnamed' in col:

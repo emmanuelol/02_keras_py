@@ -614,6 +614,54 @@ def plot_feature_importance(model, X):
     plt.show()
 
 
+def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, output_dir='.'):
+    """
+    モデルの前処理や使うファイル、ハイパーパラメータなどの情報を保存例
+    ※「このモデルはどうやって学習されたんや！？」
+    　「このモデルはどんな性能なんや！？」
+      「このモデルにデータ投入するための、学習済みの前処理パイプがない！！」
+      みたいな事態にならないようにデータ残す
+    https://qiita.com/sugulu/items/c0e8a5e6b177bfe05e99
+    Usage:
+        from sklearn.ensemble import RandomForestClassifier
+        model = RandomForestClassifier(random_state=0)
+        model.fit(X_train, y_train)
+
+        # データ保存
+        training_info = {"training_data": "predict_data.csv",
+                         "model_type": "RandomForestClassifier",
+                         "hyper_pram": "default"}
+        save_sklearn_model_info(model, training_info)
+
+        # データロード
+        import joblib
+        import glob
+        paths = glob.glob('./*joblib')
+        load_data = joblib.load(paths[0])
+        model = load_data['trained_model']
+        model.predict(X_test.iloc[0:1])
+    """
+    from datetime import datetime, timedelta, timezone
+    import joblib
+
+    # 各種データを保存する用意
+    JST = timezone(timedelta(hours=+9), "JST")  # 日本時刻に
+    now = datetime.now(JST).strftime("%Y%m%d_%H%M%S")  # 現在時間を取得
+
+    # 学習データ、モデルの種類、ハイパーパラメータの情報に現在時刻も詰める
+    training_info["save_date"] = now
+
+    save_data = {
+        "preprocess_pipeline": preprocess_pipeline,
+        "trained_model": model,
+        "training_info": training_info}
+
+    # 保存
+    filename = os.path.join(output_dir, "sklearn_model_info_" + now + ".joblib")
+    joblib.dump(save_data, filename)
+    print("INFO: save file. {}".format(filename))
+
+
 def set_tf_random_seed(seed=0):
     """
     tensorflow v2.0の乱数固定
@@ -681,3 +729,23 @@ def test_func():
     df_titanic = sns.load_dataset('titanic')
     assert len(add_label_kmeans_pca(df_titanic, is_pca=False)['kmeans'].unique()) == 4
     assert len(add_label_kmeans_pca(df_titanic, normal='', is_pca=False)['kmeans'].unique()) == 4
+
+    # save_sklearn_model_info()
+    df_iris = sns.load_dataset('iris')
+    from sklearn.ensemble import RandomForestClassifier
+    model = RandomForestClassifier(random_state=0)
+    model.fit(X_train, y_train)
+
+    # データ保存
+    training_info = {"training_data": "iris",
+                    "model_type": "RandomForestClassifier",
+                    "hyper_pram": "default"}
+    save_sklearn_model_info(model, training_info)
+
+    # データロード
+    import joblib
+    import glob
+    paths = glob.glob('./*joblib')
+    load_data = joblib.load(paths[0])
+    model = load_data['trained_model']
+    model.predict(X_test.iloc[0:1])
