@@ -131,4 +131,7 @@ if __name__ == '__main__':
     for i in pbar:
         pbar.set_description(f"Generation {(i+1) * 100}")
         annealing_im = next_generation(is_plot=False)
+        # 処理時間かかるから6roundごとに画像出すようにする
+        if args['round'] % 5 == 1:
+            plt.imsave(os.path.join(args['output_dir'], str(pathlib.Path(filename).stem) + '_reconstruct' + '.png'), annealing_im)
     plt.imsave(os.path.join(args['output_dir'], str(pathlib.Path(filename).stem) + '_reconstruct' + '.png'), annealing_im)
