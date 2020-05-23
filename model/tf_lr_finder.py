@@ -7,20 +7,21 @@ import tempfile
 
 from tensorflow import keras
 
-def run(model, gen, batch_size:int, steps_per_epoch:int, output_dir='./'):
+
+def run(model, gen, batch_size: int, steps_per_epoch: int, output_dir='./'):
     """
     modelとトレーニングデータからLearningRateFinder実行する
     引数のgenがトレーニングデータ（NumPy配列またはflow済みImageDataGenerator）
     """
     lrf = LearningRateFinder(model)
-    lrf.find(gen
-            , 1e-10, 1e+1 # 最小最大学習率
-            , stepsPerEpoch=steps_per_epoch
-            , batchSize=batch_size)
+    lrf.find(gen, 1e-10, 1e+1,  # 最小最大学習率
+             stepsPerEpoch=steps_per_epoch,
+             batchSize=batch_size)
     lrs, losses = lrf.plot_loss()
-    plt.savefig(os.path.join(output_dir,'lrfind_plot.jpg'))
-    df_lrs = pd.DataFrame({'lrs':lrs, 'losses':losses})
-    df_lrs.to_csv(os.path.join(output_dir,'lrfinder.tsv'), sep='\t', index=False)
+    plt.savefig(os.path.join(output_dir, 'lrfind_plot.jpg'))
+    df_lrs = pd.DataFrame({'lrs': lrs, 'losses': losses})
+    df_lrs.to_csv(os.path.join(output_dir, 'lrfinder.tsv'), sep='\t', index=False)
+
 
 class LearningRateFinder:
     """
@@ -126,8 +127,8 @@ class LearningRateFinder:
         lr *= self.lrMult
         keras.backend.set_value(self.model.optimizer.lr, lr)
 
-    def find(self, trainData, startLR, endLR
-             , epochs=None, stepsPerEpoch=None, batchSize=32, sampleSize=2048, verbose=1):
+    def find(self, trainData, startLR, endLR,
+             epochs=None, stepsPerEpoch=None, batchSize=32, sampleSize=2048, verbose=1):
         """
         学習率を探索する
         Args:

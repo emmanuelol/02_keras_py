@@ -8,15 +8,36 @@ Usage:
     BS = 32
     width, height, depth = 100, 100, 3
     filters = (32, 64) # この2層のfilterならinputとoutput同じサイズになる、層増やすとサイズずれてエラーになる
-    latentDim = 256#16
+    latentDim = 256  #16
     (encoder, decoder, autoencoder) = tf_ConvAutoencoder.build(width, height, depth, filters=filters, latentDim=latentDim)
     opt = Adam(lr=1e-3)
+
+    # mseをlossに使うのが味噌っぽい
     autoencoder.compile(loss="mse", optimizer=opt)
+
+    # X,yどちらも画像にする
     H = autoencoder.fit(trainX, trainX
                         , validation_data=(testX, testX)
                         , epochs=EPOCHS
                         , batch_size=BS)
-    decoded = autoencoder.predict(testX)
+
+    # 結果確認
+    for i,X in enumerate(testX):
+        decoded = autoencoder.predict(X)
+        recon = (decoded * 255).astype("uint8")
+
+        # save the outputs image to disk
+        cv2.imwrite(f"output/recon_{i}.png", recon)
+
+        # notebook show
+        plt.figure(figsize=(10*2, 8*2))
+        im = cv2.imread(f"output/recon_{i}.png")
+        img_RGB = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        im_list = np.asarray(img_RGB)
+        plt.imshow(im_list)
+        plt.show()
+
+異常検知とか試したnotebook: ../experiment/tf_autoencoder_Cats_Dogs.ipynb
 """
 import numpy as np
 from tensorflow.keras import backend as K
