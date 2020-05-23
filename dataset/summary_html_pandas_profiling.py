@@ -53,12 +53,12 @@ if __name__ == "__main__":
     if str(pathlib.Path(path).suffix) in ['.txt', '.tsv']:
         df = pd.read_csv(path, sep='\t', skiprows=skiprows, header=args.n_header)
         profile = pdp.ProfileReport(df)
-        profile.to_file(output_file=f"{output_dir}/{str(pathlib.Path(path).name)}_profile.html")
+        profile.to_file(outputfile=f"{output_dir}/{str(pathlib.Path(path).name)}_profile.html")
 
     if str(pathlib.Path(path).suffix) in ['.csv']:
         df = pd.read_csv(path, skiprows=skiprows, header=args.n_header)
         profile = pdp.ProfileReport(df)
-        profile.to_file(output_file=f"{output_dir}/{str(pathlib.Path(path).name)}_profile.html")
+        profile.to_file(outputfile=f"{output_dir}/{str(pathlib.Path(path).name)}_profile.html")
 
     if str(pathlib.Path(path).suffix) in ['.xlsx', '.xlsm', '.xlsb', '.xls']:
         book = openpyxl.load_workbook(path)
@@ -72,6 +72,6 @@ if __name__ == "__main__":
                     if 'Unnamed' in col:
                         df = df.drop(col, axis=1)
                 profile = pdp.ProfileReport(df)
-                profile.to_file(output_file=f"{output_dir}/{str(pathlib.Path(path).name)}_{s}_profile.html")
+                profile.to_file(outputfile=f"{output_dir}/{str(pathlib.Path(path).name)}_{s}_profile.html")
             except Exception as e:
                 print(e)
