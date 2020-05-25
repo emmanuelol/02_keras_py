@@ -281,7 +281,7 @@ def show_tile_img(images_4tensor):
     show_np_img(tile)
 
 
-def resize_ndarray(x, input_shape=(380,380,3)):
+def resize_ndarray(x, input_shape=(380, 380, 3)):
     """
     tensorflow.kerasでndarray型の画像を指定サイズにリサイズする
     http://pynote.hatenablog.com/entry/keras-image-utils
@@ -342,6 +342,33 @@ def movie2gif(input_dir, output_dir):
                     sys.stdout.flush()
                     writer.append_data(im)
             print("transaction finished: " + file)
+
+
+def MOV2mp4(input_video, output_dir):
+    """
+    MOV拡張子の動画ファイルをmp4に変換する
+    http://rikoubou.hatenablog.com/entry/2019/01/15/174751
+    Usage:
+        MOV2mp4('IMG_9303.MOV', 'output')  # output/IMG_9303.mp4 ができる
+    """
+    video = cv2.VideoCapture(input_video)
+    fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+    writer = cv2.VideoWriter((os.path.join(output_dir, pathlib.Path(input_video).stem + '.mp4')),
+                             fourcc,
+                             20.0,  # フレームレート
+                             (int(video.get(4)), int(video.get(3)))  # 画像サイズ
+                             )
+
+    frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    for i in range(frame_count):
+        ret, frame = video.read()
+        frame = np.rot90(frame, 3)  # 縦動画の縦横が逆になってしまったので、２７０度回転  https://oliversi.com/2019/01/16/python-opencv-movie2/
+        # print(frame.shape)
+        writer.write(frame)  # 画像を1フレーム分として書き込み
+
+    writer.release()
+    video.release()
+    cv2.destroyAllWindows()
 
 
 def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
@@ -510,10 +537,12 @@ def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFr
     - how=定数ならその値で欠損値置換
     - how='mean'なら平均値で欠損値置換.列(col)の値が数値でないとエラー
     - how='knn'ならk近傍法で欠損値置換.列(col)の値が文字列などカテゴリ型でないとエラー
-    ※そもそも欠損値補完というアプローチは、
-　      ・欠損値が多すぎるとそもそもまともに予測できないし、予測の悪さが大勢に影響を及ぼして全体のパフォーマンスを悪化させかねない
-　      ・欠損値が少ないならdropしても大勢に影響はない
-　  　という矛盾を抱えている訳ですが、そこそこの欠損があるときにdropするよりちょっと良くなるかな？という可能性を追求するためにあるものだと思います。
+
+    そもそも欠損値補完というアプローチは、以下の矛盾を抱えている
+    - 欠損値が多すぎるとそもそもまともに予測できないし、予測の悪さが大勢に影響を及ぼして全体のパフォーマンスを悪化させかねない
+    - 欠損値が少ないならdropしても大勢に影響はない
+    なので、そこそこの欠損があるときにdropするよりちょっと良くなるかな？という可能性を追求するためにあるものだと思います。
+
     Usage:
         import seaborn as sns
         df = sns.load_dataset('titanic')
@@ -614,7 +643,7 @@ def plot_feature_importance(model, X):
     plt.show()
 
 
-def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, output_dir='.'):
+def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, output_path='.'):
     """
     モデルの前処理や使うファイル、ハイパーパラメータなどの情報を保存例
     ※「このモデルはどうやって学習されたんや！？」
@@ -623,30 +652,16 @@ def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, outp
       みたいな事態にならないようにデータ残す
     https://qiita.com/sugulu/items/c0e8a5e6b177bfe05e99
     Usage:
-        from sklearn.ensemble import RandomForestClassifier
-        model = RandomForestClassifier(random_state=0)
-        model.fit(X_train, y_train)
-
-        # データ保存
-        training_info = {"training_data": "predict_data.csv",
-                         "model_type": "RandomForestClassifier",
-                         "hyper_pram": "default"}
-        save_sklearn_model_info(model, training_info)
-
-        # データロード
-        import joblib
-        import glob
-        paths = glob.glob('./*joblib')
-        load_data = joblib.load(paths[0])
-        model = load_data['trained_model']
-        model.predict(X_test.iloc[0:1])
+        test_func()の_test_save_sklearn_model_info() 参照
     """
     from datetime import datetime, timedelta, timezone
     import joblib
 
-    # 各種データを保存する用意
     JST = timezone(timedelta(hours=+9), "JST")  # 日本時刻に
     now = datetime.now(JST).strftime("%Y%m%d_%H%M%S")  # 現在時間を取得
+
+    # 出力先がディレクトリならファイル名に現在時刻付ける
+    filepath = os.path.join(output_path, "sklearn_model_info_" + now + ".joblib") if os.path.isdir(output_path) else output_path
 
     # 学習データ、モデルの種類、ハイパーパラメータの情報に現在時刻も詰める
     training_info["save_date"] = now
@@ -657,9 +672,9 @@ def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, outp
         "training_info": training_info}
 
     # 保存
-    filename = os.path.join(output_dir, "sklearn_model_info_" + now + ".joblib")
-    joblib.dump(save_data, filename)
-    print("INFO: save file. {}".format(filename))
+    joblib.dump(save_data, filepath)
+    print("INFO: save file. {}".format(filepath))
+    return save_data, filepath
 
 
 def set_tf_random_seed(seed=0):
@@ -694,6 +709,10 @@ def test_func():
     import seaborn as sns
 
     # assertでテストケースチェックしていく. Trueなら何もしない
+
+    # MOV2mp4()
+    MOV2mp4(r'D:\iPhone_pictures\2019-04\IMG_9303.MOV', r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp')
+    assert os.path.exists(r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp\IMG_9303.mp4') == True
 
     # normalize_df_cols
     df_titanic = sns.load_dataset('titanic')
@@ -731,21 +750,57 @@ def test_func():
     assert len(add_label_kmeans_pca(df_titanic, normal='', is_pca=False)['kmeans'].unique()) == 4
 
     # save_sklearn_model_info()
-    df_iris = sns.load_dataset('iris')
-    from sklearn.ensemble import RandomForestClassifier
-    model = RandomForestClassifier(random_state=0)
-    model.fit(X_train, y_train)
+    def _test_save_sklearn_model_info():
+        import joblib
+        import sklearn.model_selection
+        from sklearn.pipeline import Pipeline
+        from sklearn.preprocessing import StandardScaler, LabelEncoder
+        from sklearn.ensemble import RandomForestClassifier
 
-    # データ保存
-    training_info = {"training_data": "iris",
-                    "model_type": "RandomForestClassifier",
-                    "hyper_pram": "default"}
-    save_sklearn_model_info(model, training_info)
+        # アヤメのデータ
+        df_iris = sns.load_dataset('iris')
+        X = df_iris[['sepal_length', 'sepal_width', 'petal_length', 'petal_width']]
+        y = LabelEncoder().fit_transform(df_iris['species'])
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y)
 
-    # データロード
-    import joblib
-    import glob
-    paths = glob.glob('./*joblib')
-    load_data = joblib.load(paths[0])
-    model = load_data['trained_model']
-    model.predict(X_test.iloc[0:1])
+        def _train(_X_train, _y_train):
+            # X_train 前処理
+            preprocess_pipeline = Pipeline(steps=[("standard_scaler", StandardScaler())])
+            X_preprocessed = preprocess_pipeline.fit_transform(_X_train)
+
+            # sklearn_model
+            model = RandomForestClassifier(random_state=0)
+            model.fit(X_preprocessed, _y_train)
+
+            # データ保存
+            training_info = {"training_data": "iris",
+                             "model_type": "RandomForestClassifier",
+                             "hyper_pram": "default"}
+            model_info, model_info_filepath = save_sklearn_model_info(model, training_info,
+                                                                      preprocess_pipeline=preprocess_pipeline,
+                                                                      output_path=r'D:\work\02_keras_py\experiment\01_code_test\output_test\sklearn_model\iris_rf.joblib'
+                                                                      )
+            return model_info, model_info_filepath
+
+        def _predict(model_info, _X_test):
+            # X_test 前処理
+            preprocess_pipeline = model_info['preprocess_pipeline']
+            X_preprocessed = _X_test if preprocess_pipeline is None else preprocess_pipeline.fit_transform(_X_test)
+
+            # モデルロード
+            model = model_info['trained_model']
+            pred = model.predict(X_preprocessed)
+            print('pred:', pred)
+
+        # モデル作成
+        model_info, model_info_filepath = _train(X_train, y_train)
+
+        # 5件テスト
+        _predict(model_info, X_test[0:5])
+
+        # ファイルからデータロードして、5件テスト
+        load_data = joblib.load(model_info_filepath)
+        print(load_data)
+        _predict(load_data, X_test[0:5])
+        return
+    _test_save_sklearn_model_info()
