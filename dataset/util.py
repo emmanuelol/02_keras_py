@@ -398,6 +398,51 @@ def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
             ax.get_figure().savefig(os.path.join(output_dir, column + ".png"))
 
 
+def plot_dendrogram(df, method='ward', output_dir=None):
+    """
+    階層型クラスタリングで樹形図（デンドログラム）と距離行列のヒートマップをplotする
+    Usage:
+        import seaborn as sns
+        df = sns.load_dataset('iris')
+        df = df.drop("species", axis=1)  # 数値列だけにしないとエラー
+        df_dist = plot_dendrogram(df.T, method='ward')  # データフレーム転置しないと列についてのクラスタリングにはならない
+    """
+    import seaborn as sns
+    from scipy.spatial.distance import pdist, squareform
+    from scipy.cluster.hierarchy import linkage, dendrogram, cophenet
+
+    # 数値列だけにしないと距離測れない
+    _df = df.T
+    cols = [col for col in _df.columns if _df[col].dtype.name in ['object', 'category', 'bool']]
+    assert len(cols) == 0, '数値以外型の列があるので階層型クラスタリングできません'
+
+    # 階層型クラスタリング実行
+    # クラスタリング手法である methods = ["single", "complete", "average", "weighted", "centroid", "median", "ward"]　ある
+    z = linkage(df, method=method, metric='euclidean')
+
+    # デンドログラムを描く
+    dendrogram(z, labels=df.index)
+    plt.title(method)
+    if output_dir is not None:
+        plt.savefig(os.path.join(output_dir, method + '_dendro.png'), bbox_inches="tight")
+    plt.show()
+
+    # 距離行列計算
+    s = pdist(df)
+    df_dist = pd.DataFrame(squareform(s), index=df.index, columns=df.index)  # 距離行列を平方行列の形にする
+    sns.heatmap(df_dist, cmap='coolwarm', annot=True)
+    plt.title('distance matrix')
+    if output_dir is not None:
+        plt.savefig(os.path.join(output_dir, method + '_distmatrix.png'), bbox_inches="tight")
+    plt.show()
+
+    # クラスタリング手法の評価指標計算 値大きい方が高精度らしい https://www.haya-programming.com/entry/2019/02/11/035943
+    c, d = cophenet(z, s)
+    print('method:{0} {1:.3f}'.format(method, c))
+
+    return df_dist
+
+
 def normalize_df_cols(df: pd.DataFrame, cols: list, normal='standard') -> pd.DataFrame:
     """
     データフレームの指定列について、正規化
@@ -651,6 +696,7 @@ def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, outp
       「このモデルにデータ投入するための、学習済みの前処理パイプがない！！」
       みたいな事態にならないようにデータ残す
     https://qiita.com/sugulu/items/c0e8a5e6b177bfe05e99
+    ※sklearnだけじゃなく、statsmodelsのモデルでもいけた
     Usage:
         test_func()の_test_save_sklearn_model_info() 参照
     """
@@ -706,9 +752,17 @@ def test_func():
     $ cd <このモジュールの場所>
     $ nosetests -v -s util.py  # 再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行。-s付けるとprint()の内容出してくれる
     """
+    import matplotlib
+    matplotlib.use('Agg')  # グラフ表示させない
     import seaborn as sns
 
     # assertでテストケースチェックしていく. Trueなら何もしない
+
+    # plot_dendrogram()
+    df = sns.load_dataset('iris')
+    df = df.drop('species', axis=1)
+    df_dist = plot_dendrogram(df.T, method='ward', output_dir=r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp')
+    assert df_dist.shape[0] == 4
 
     # MOV2mp4()
     MOV2mp4(r'D:\iPhone_pictures\2019-04\IMG_9303.MOV', r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp')
