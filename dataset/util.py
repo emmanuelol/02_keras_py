@@ -398,7 +398,7 @@ def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
             ax.get_figure().savefig(os.path.join(output_dir, column + ".png"))
 
 
-def plot_dendrogram(df, method='ward', output_dir=None):
+def plot_dendrogram(df, method='ward', figsize=(10, 6), output_dir=None):
     """
     階層型クラスタリングで樹形図（デンドログラム）と距離行列のヒートマップをplotする
     Usage:
@@ -421,7 +421,8 @@ def plot_dendrogram(df, method='ward', output_dir=None):
     z = linkage(df, method=method, metric='euclidean')
 
     # デンドログラムを描く
-    dendrogram(z, labels=df.index)
+    fig, ax = plt.subplots(figsize=figsize)
+    dendrogram(z, labels=df.index, ax=ax)
     plt.title(method)
     if output_dir is not None:
         plt.savefig(os.path.join(output_dir, method + '_dendro.png'), bbox_inches="tight")
@@ -430,7 +431,8 @@ def plot_dendrogram(df, method='ward', output_dir=None):
     # 距離行列計算
     s = pdist(df)
     df_dist = pd.DataFrame(squareform(s), index=df.index, columns=df.index)  # 距離行列を平方行列の形にする
-    sns.heatmap(df_dist, cmap='coolwarm', annot=True)
+    fig, ax = plt.subplots(figsize=figsize)
+    sns.heatmap(df_dist, cmap='coolwarm', annot=True, ax=ax)
     plt.title('distance matrix')
     if output_dir is not None:
         plt.savefig(os.path.join(output_dir, method + '_distmatrix.png'), bbox_inches="tight")
