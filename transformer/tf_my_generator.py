@@ -39,7 +39,7 @@ import albumentations
 from PIL import Image
 import threading
 
-#from tensorflow.keras.preprocessing.image import ImageDataGenerator
+# from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow import keras
 from keras_preprocessing.image import ImageDataGenerator
 
@@ -52,13 +52,15 @@ from transformer import ndimage, my_image
 #import Rand_Augment
 from Git.randaugment import Rand_Augment
 
-_gray_aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=1)])] )
+
+_gray_aug = my_image.Compose([my_image.RandomCompose([my_image.ToGrayScale(p=1)])])
 def preprocessing_grayscale(x):
     """ ImageDataGeneratorのpreprocessing_functionで3次元画像をグレースケール化 """
     x = _gray_aug(image=x)["image"].astype(np.float32)
     return x
 
-def get_datagen(rescale=1.0/255, is_grayscale=False):
+
+def get_datagen(rescale=1.0 / 255, is_grayscale=False):
     """画像_前処理実行"""
     if is_grayscale == True:
         datagen = ImageDataGenerator(rescale=rescale # 前処理：画像を0.0~1.0の範囲に変換
@@ -66,6 +68,7 @@ def get_datagen(rescale=1.0/255, is_grayscale=False):
     else:
         datagen = ImageDataGenerator(rescale=rescale) # 前処理：画像を0.0~1.0の範囲に変換
     return datagen
+
 
 def random_crop(original_img, random_crop_size):
     """
@@ -89,6 +92,7 @@ def random_crop(original_img, random_crop_size):
     #return np.asarray(x_crop_img)/255.0 # PIL->numpy
     return ndimage.resize(x_crop, width, height) # x_cropの画像サイズはcropしたサイズなのでもとの画像サイズに戻す
 
+
 def mix_up(X1, y1, X2, y2, mix_up_alpha=0.2):
     """
     Mix-up
@@ -99,13 +103,14 @@ def mix_up(X1, y1, X2, y2, mix_up_alpha=0.2):
     l = np.random.beta(mix_up_alpha, mix_up_alpha, batch_size)
     X_l = l.reshape(batch_size, 1, 1, 1)
     y_l = l.reshape(batch_size, 1)
-    X = X1 * X_l + X2 * (1-X_l)
-    y = y1 * y_l + y2 * (1-y_l)
+    X = X1 * X_l + X2 * (1 - X_l)
+    y = y1 * y_l + y2 * (1 - y_l)
     return X, y
+
 
 def random_erasing(x, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=255):
     """
-    Random Erasing
+    Random Erasing（真っ黒に塗りつぶすから、正確にはcutout）
     https://www.kumilog.net/entry/numpy-data-augmentation#Random-Erasing
     """
     image = np.copy(x)
@@ -133,6 +138,7 @@ def random_erasing(x, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=255):
     right = left + mask_width
     image[top:bottom, left:right, :].fill(mask_value)
     return image
+
 
 def ricap(image_batch, label_batch, beta=0.3, use_same_random_value_on_batch=True):
     """
@@ -203,6 +209,43 @@ def ricap(image_batch, label_batch, beta=0.3, use_same_random_value_on_batch=Tru
                      np.repeat(image_y, batch_size))
     return output_images, output_labels
 
+
+def cutmix(X1, y1, X2, y2, cutmix_alpha=1.0):
+    """
+    CutMix
+    https://www.kaggle.com/code1110/mixup-cutmix-in-keras を基に作成
+
+    CutoutとMixupの技術それぞれを合わせたような手法。Cutoutの部分を別ラベルの画像の一部を入れる
+    参考:https://qiita.com/wakame1367/items/82316feb7268e56c6161
+
+    従来まで行われていた領域の欠如を行う手法（Random Erasing/Cutout）は学習に必要な情報を削り、非効率になるため、その改善を図ったそう
+    参考:https://nonbiri-tereka.hatenablog.com/entry/2020/01/06/082921
+    """
+    def get_rand_bbox(width, height, l):
+        """Cutoutの領域切り出すための関数"""
+        r_x = np.random.randint(width)
+        r_y = np.random.randint(height)
+        r_l = np.sqrt(1 - l)
+        r_w = np.int(width * r_l)
+        r_h = np.int(height * r_l)
+        return r_x, r_y, r_l, r_w, r_h
+
+    assert X1.shape[0] == y1.shape[0] == X2.shape[0] == y2.shape[0]
+    lam = np.random.beta(cutmix_alpha, cutmix_alpha)
+    width = X1.shape[2]
+    height = X1.shape[1]
+    r_x, r_y, r_l, r_w, r_h = get_rand_bbox(width, height, lam)
+    bx1 = np.clip(r_x - r_w // 2, 0, width)
+    bx2 = np.clip(r_x + r_w // 2, 0, width)
+    by1 = np.clip(r_y - r_h // 2, 0, height)
+    by2 = np.clip(r_y + r_h // 2, 0, height)
+    X1[:, bx1:bx2, by1:by2, :] = X2[:, bx1:bx2, by1:by2, :]
+    X = X1
+    lam = 1 - ((bx2 - bx1) * (by2 - by1) / (width * height))
+    y = lam * y1 + (1 - lam) * y2
+    return X, y
+
+
 def get_kuzushiji_generator(gen):
     """
     下山さんがくずし字コンペでやっていたData AugmentationをするGenerator
@@ -231,6 +274,7 @@ def get_kuzushiji_generator(gen):
         batch_x = np.array([aug(image=x)["image"] for x in batch_x])
         yield batch_x, batch_y
 
+
 def get_cifar10_best_train_generator(x_train, y_train, batch_size):
     """
     CIFAR10のbest ImageDataGenerator 取得
@@ -243,6 +287,7 @@ def get_cifar10_best_train_generator(x_train, y_train, batch_size):
     from experiment.cifar10_wrn_acc_97 import cifar10_wrn_acc_97
     train_gen = cifar10_wrn_acc_97.mode7_generator(x_train, y_train, batch_size)
     return train_gen
+
 
 def randaugment_generator(gen, N=None, M=None, rescale=1.0/255.0):
     """
@@ -272,10 +317,11 @@ def randaugment_generator(gen, N=None, M=None, rescale=1.0/255.0):
             batch_img = [Image.fromarray(np.uint8(x)) for x in batch_x] # numpy->PIL
         else:
             # 前処理済みの場合
-            batch_img = [Image.fromarray(np.uint8(x/rescale)) for x in batch_x] # numpy->PIL
+            batch_img = [Image.fromarray(np.uint8(x / rescale)) for x in batch_x] # numpy->PIL
         batch_img = [img_augment(image=img) for img in batch_img] # Rand_Augment.Rand_AugmentはPILでないとエラー
-        batch_x = np.array([np.asarray(img, np.float32)*rescale for img in batch_img]) # PIL->numpy
+        batch_x = np.array([np.asarray(img, np.float32) * rescale for img in batch_img]) # PIL->numpy
         yield batch_x, batch_y
+
 
 def ricap_generator(gen, beta=0.3, use_same_random_value_on_batch=True):
     """
@@ -287,6 +333,7 @@ def ricap_generator(gen, beta=0.3, use_same_random_value_on_batch=True):
     for batch_x, batch_y in gen:
         yield ricap(batch_x, batch_y, beta=beta, use_same_random_value_on_batch=use_same_random_value_on_batch)
 
+
 def random_erasing_generator(gen, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=1.0):
     """
     Random ErasingでData AugmentationするGenerator
@@ -297,6 +344,7 @@ def random_erasing_generator(gen, p=0.5, s=(0.02, 0.4), r=(0.3, 3), max_pic=1.0)
     for batch_x, batch_y in gen:
         batch_x = np.array([random_erasing(x, p=p, s=s, r=r, max_pic=max_pic) for x in batch_x])
         yield batch_x, batch_y
+
 
 def mixup_generator(gen, mix_up_alpha=0.2):
     """
@@ -315,8 +363,30 @@ def mixup_generator(gen, mix_up_alpha=0.2):
                 break
             elif m1 == m2:
                 break
-        batch_x, batch_y = mix_up(batch_x, batch_y, batch_x_2, batch_y_2)
+        batch_x, batch_y = mix_up(batch_x, batch_y, batch_x_2, batch_y_2, mix_up_alpha=mix_up_alpha)
         yield batch_x, batch_y
+
+
+def cutmix_generator(gen, cutmix_alpha=1.0):
+    """
+    CutmixでData AugmentationするGenerator
+    Args:
+        gen:flow済みImageDataGenerator
+        mix_up_alpha: Cutmixのパラメータ
+    """
+    for batch_x, batch_y in gen:
+        while True:
+            batch_x_2, batch_y_2 = next(gen)
+            m1, m2 = batch_x.shape[0], batch_x_2.shape[0]
+            if m1 < m2:
+                batch_x_2 = batch_x_2[:m1]
+                batch_y_2 = batch_y_2[:m1]
+                break
+            elif m1 == m2:
+                break
+        batch_x, batch_y = cutmix(batch_x, batch_y, batch_x_2, batch_y_2, cutmix_alpha=cutmix_alpha)
+        yield batch_x, batch_y
+
 
 def random_crop_generator(gen, random_crop_size=[224,224]):
     """
@@ -329,6 +399,7 @@ def random_crop_generator(gen, random_crop_size=[224,224]):
         batch_x = np.array([random_crop(x, random_crop_size) for x in batch_x])
         yield batch_x, batch_y
 
+
 def gray_generator(gen, p=1):
     """
     grayscaleでData AugmentationするGenerator
@@ -338,8 +409,9 @@ def gray_generator(gen, p=1):
     """
     aug = my_image.Compose( [my_image.RandomCompose([my_image.ToGrayScale(p=p)])] )
     for batch_x, batch_y in gen:
-        batch_x = np.array([aug(image=x*255.0)["image"] for x in batch_x])
-        yield batch_x/255.0, batch_y
+        batch_x = np.array([aug(image=x * 255.0)["image"] for x in batch_x])
+        yield batch_x / 255.0, batch_y
+
 
 def label_smoothing_generator(gen, smooth_factor=0.1, mask_value=-1.0, is_multi_class=True):
     """
@@ -360,19 +432,20 @@ def label_smoothing_generator(gen, smooth_factor=0.1, mask_value=-1.0, is_multi_
         Imagedatageneratorインスタンス（yはlabel_smoothing済み）
     """
     def _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class):
-        y_i = y_i.astype('float64') # int型だとエラーになるのでfloatに変換
-        y_i *= 1 - smooth_factor # ラベル値減らす
+        y_i = y_i.astype('float64')  # int型だとエラーになるのでfloatに変換
+        y_i *= 1 - smooth_factor  # ラベル値減らす
         # ラベル値加算するか(マルチクラス分類の場合softmaxで合計ラベル=1になるが、multiラベルはそうではないので)
         if is_multi_class == True:
             y_i += smooth_factor / y_i.shape[0]
-        y_i = np.where(y_i < 0.0, mask_value, y_i) # 負の値になったらマスク値に置換する
+        y_i = np.where(y_i < 0.0, mask_value, y_i)  # 負の値になったらマスク値に置換する
         return y_i
 
     for x, y in gen:
-        smooth_y = np.empty(y.shape, dtype=np.float) # yは上書きできないので同じ大きさの空配列用意
-        for i,y_i in enumerate(y):
+        smooth_y = np.empty(y.shape, dtype=np.float)  # yは上書きできないので同じ大きさの空配列用意
+        for i, y_i in enumerate(y):
             smooth_y[i] = _smooth_labels(y_i, smooth_factor, mask_value, is_multi_class)
         yield x, smooth_y
+
 
 def print_image_generator(gen, i=0):
     """
@@ -384,7 +457,7 @@ def print_image_generator(gen, i=0):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    x,y = next(gen)
+    x, y = next(gen)
     print('x.shape:', x.shape)
     print(f'x[{i}]:\n', x[i])
     print('np.max(x):', np.max(x))
@@ -406,43 +479,45 @@ def print_image_generator(gen, i=0):
             plt.grid(False)
             plt.show()
 
+
 class MyImageDataGenerator(ImageDataGenerator):
     """
     KerasのImageDataGeneratorを継承してMix-upやRandom Croppingのできる独自のジェネレーターを作る
     https://qiita.com/koshian2/items/909360f50e3dd5922f32
     """
     def __init__(self
-                 , featurewise_center = False # featurewise_center に True を指定すると、データセット全体で各チャンネルごとの画素値の平均を0にする
-                 , featurewise_std_normalization = False# featurewise_std_normalization に True を指定すると、データセット全体で各チャンネルごとの画素値の分散を1にする。featurewise_std_normalization=True にした場合、featurewise_center=True も指定しなければならない
-                 , samplewise_center = False # samplewise_center に True を指定すると、サンプルごとの画素値の平均を0にする
-                 , samplewise_std_normalization = False #  samplewise_std_normalization に True を指定すると、サンプルごとの画素値の分散を1にする
-                 , zca_whitening = False # zca_whitening に True を指定すると、白色化を行う。zca_whitening=True にした場合、featurewise_center=True も指定しなければならない
-                 , zca_epsilon = 1e-06 # zca_whitening のイプシロン
-                 , rotation_range = 0.0 # rotation_range=20 とした場合、-20° ~ 20° の範囲でランダムに回転する
-                 , width_shift_range = 0.0 # width_shift_range=0.3 とした場合、[-0.3 * Width, 0.3 * Width] の範囲でランダムに左右平行移動
-                 , height_shift_range = 0.0 # height_shift_range=0.3 とした場合、[-0.3 * Height, 0.3 * Height] の範囲でランダムに上下平行移動
-                 , brightness_range = None # ランダムに明度を変更
-                 , shear_range = 0.0 # shear_range=5 とした場合、-5° ~ 5° の範囲でランダムにせん断
-                 , zoom_range = 0.0 # zoom_range=[0.5, 1.2] とした場合、[0.5, 1.2] の範囲でランダムに拡大縮小
+                 , featurewise_center=False  # featurewise_center に True を指定すると、データセット全体で各チャンネルごとの画素値の平均を0にする
+                 , featurewise_std_normalization=False  # featurewise_std_normalization に True を指定すると、データセット全体で各チャンネルごとの画素値の分散を1にする。featurewise_std_normalization=True にした場合、featurewise_center=True も指定しなければならない
+                 , samplewise_center=False  # samplewise_center に True を指定すると、サンプルごとの画素値の平均を0にする
+                 , samplewise_std_normalization=False  # samplewise_std_normalization に True を指定すると、サンプルごとの画素値の分散を1にする
+                 , zca_whitening=False  # zca_whitening に True を指定すると、白色化を行う。zca_whitening=True にした場合、featurewise_center=True も指定しなければならない
+                 , zca_epsilon=1e-06  # zca_whitening のイプシロン
+                 , rotation_range=0.0  # rotation_range=20 とした場合、-20° ~ 20° の範囲でランダムに回転する
+                 , width_shift_range=0.0  # width_shift_range=0.3 とした場合、[-0.3 * Width, 0.3 * Width] の範囲でランダムに左右平行移動
+                 , height_shift_range=0.0 # height_shift_range=0.3 とした場合、[-0.3 * Height, 0.3 * Height] の範囲でランダムに上下平行移動
+                 , brightness_range=None  # ランダムに明度を変更
+                 , shear_range=0.0  # shear_range=5 とした場合、-5° ~ 5° の範囲でランダムにせん断
+                 , zoom_range=0.0  # zoom_range=[0.5, 1.2] とした場合、[0.5, 1.2] の範囲でランダムに拡大縮小
                  , channel_shift_range = 0.0 # channel_shift_range=5. とした場合、[-5.0, 5.0] の範囲でランダムに画素値に値を足す
-                 , fill_mode = 'nearest' # 回転や平行移動等の結果、値がないピクセルをどのように埋めるかを指定 'nearest': 最も近い値で埋める
-                 , cval = 0.0 # 回転や平行移動等の結果、境界外の点に使用される値
-                 , horizontal_flip = False # horizontal_flip=True とした場合、ランダムに左右反転
-                 , vertical_flip = False # vertical_flip=True とした場合、ランダムに上下反転
-                 , rescale = 1. / 255 # 各変換を行う前に画素値を rescale 倍する
-                 , preprocessing_function = None # コールバック関数による前処理。rescaleより前に一番始めに実行される
-                 , data_format = 'channels_last' # "channels_last" のままにする
-                 , validation_split = 0.0 # 0.1に設定するとデータの最後の10％が検証のために利用される
-                 , random_crop = None # [224,224]とすると[224,224]のサイズでランダムに画像切り抜く。使わない場合はNone
-                 , mix_up_alpha = 0.0 # mixupの混ぜ具合。使わない場合は0.0にする。使う場合は0.2とか
-                 , random_erasing_prob = 0.0 # random_erasing の確率
-                 , random_erasing_maxpixel = 255 # random_erasing で消す領域の画素の最大値
-                 , ricap_beta = 0.0 # RICAP。使う場合は0.3とか
-                 , ricap_use_same_random_value_on_batch = True # RICAP
-                 , is_kuzushiji_gen = False # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
-                 , grayscale_prob = 0.0 # グレースケール化の確率
-                 , randaugment_N=None # randaugmentのN
-                 , randaugment_M=None # randaugmentのM
+                 , fill_mode='nearest'  # 回転や平行移動等の結果、値がないピクセルをどのように埋めるかを指定 'nearest': 最も近い値で埋める
+                 , cval=0.0  # 回転や平行移動等の結果、境界外の点に使用される値
+                 , horizontal_flip=False  # horizontal_flip=True とした場合、ランダムに左右反転
+                 , vertical_flip=False  # vertical_flip=True とした場合、ランダムに上下反転
+                 , rescale=1. / 255  # 各変換を行う前に画素値を rescale 倍する
+                 , preprocessing_function=None  # コールバック関数による前処理。rescaleより前に一番始めに実行される
+                 , data_format='channels_last' # "channels_last" のままにする
+                 , validation_split=0.0  # 0.1に設定するとデータの最後の10％が検証のために利用される
+                 , random_crop=None  # [224,224]とすると[224,224]のサイズでランダムに画像切り抜く。使わない場合はNone
+                 , mix_up_alpha=0.0  # mixupの混ぜ具合。使わない場合は0.0にする。使う場合は0.2とか
+                 , random_erasing_prob=0.0  # random_erasing の確率
+                 , random_erasing_maxpixel=255  # random_erasing で消す領域の画素の最大値
+                 , ricap_beta=0.0  # RICAP。使う場合は0.3とか
+                 , ricap_use_same_random_value_on_batch=True  # RICAP
+                 , is_kuzushiji_gen=False  # 下山さんが使っていたAutoAugmentのデフォルト？変換入れるか
+                 , grayscale_prob=0.0  # グレースケール化の確率
+                 , randaugment_N=None  # randaugmentのN
+                 , randaugment_M=None  # randaugmentのM
+                 , cutmix_alpha=0.0  # cutmixの混ぜ具合
                  , *args, **kwargs
                 ):
         # 親クラスのコンストラクタ
@@ -459,6 +534,7 @@ class MyImageDataGenerator(ImageDataGenerator):
             self.random_erasing_maxpixel = random_erasing_maxpixel
         self.grayscale_prob = grayscale_prob
         self.ricap_beta = ricap_beta
+        self.cutmix_alpha = cutmix_alpha
         self.ricap_use_same_random_value_on_batch = ricap_use_same_random_value_on_batch
         self.randaugment_N = randaugment_N
         self.randaugment_M = randaugment_M
@@ -486,6 +562,9 @@ class MyImageDataGenerator(ImageDataGenerator):
 
         if self.ricap_beta > 0.0:
             gen = ricap_generator(gen, beta=self.ricap_beta, use_same_random_value_on_batch=self.ricap_use_same_random_value_on_batch)
+
+        if self.cutmix_alpha > 0.0:
+            gen = cutmix_generator(gen, cutmix_alpha=self.cutmix_alpha)
 
         return next(gen)
 
@@ -564,6 +643,7 @@ def get_load_image_balanced_generator(paths:np.ndarray, labels:np.ndarray, n_sam
     for _paths, _labels in _iter:
         _x = np.array([_load_image_tfkeras(p, shape, rescale_factor=rescale_factor) for p in _paths])
         yield _x, _labels
+
 
 class BatchBalancedSampler:
     def __init__(self, features:np.ndarray, labels:np.ndarray, n_samples:int):
