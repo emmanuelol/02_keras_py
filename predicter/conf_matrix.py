@@ -29,7 +29,7 @@ Usage:
 import numpy as np
 import matplotlib.pyplot as plt
 import os, sys, sklearn, itertools
-from sklearn import metrics# sklearn.metrics で実行するとエラーになることがあったのでfromで呼ぶ
+from sklearn import metrics  # sklearn.metrics で実行するとエラーになることがあったのでfromで呼ぶ
 
 # confusion matrixをプロットし画像として保存する関数
 # 参考： http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html#sphx-glr-auto-examples-model-selection-plot-confusion-matrix-py

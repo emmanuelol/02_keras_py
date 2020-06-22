@@ -30,8 +30,16 @@ Usage:
     custom_gen = my_generator.random_erasing_generator(custom_gen, p=0.5)
     custom_gen = my_generator.ricap_generator(custom_gen) # ラベルいじるmixupやricapは最後にすること
     custom_gen = my_generator.mixup_generator(custom_gen) # ラベルいじるmixupやricapは最後にすること
+
+    # もしくはMyImageDataGeneratorで複数の水増し一気に指定できる
+    my_IDG_options = {'rescale':1.0/255.0,
+                      'cutmix_alpha':0.5,
+                      'randaugment_N':2,
+                      'randaugment_M':3}
+    custom_gen = my_generator.MyImageDataGenerator(**my_IDG_options)
 """
-import os, sys
+import os
+import sys
 import numpy as np
 import pandas as pd
 import imgaug

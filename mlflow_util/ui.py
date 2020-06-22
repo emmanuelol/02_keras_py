@@ -39,6 +39,6 @@ def mlflow_callback(self, study, trial):
     """
     trial_value = trial.value if trial.value is not None else float("nan")
     with mlflow.start_run(experiment_id=self.experiment.experiment_id, run_name=study.study_name):
-        mlflow.log_params(trial.user_attrs)# mlflowで属性情報記録
-        mlflow.log_params(trial.params)# mlflowでパラメータ記録
-        mlflow.log_metrics({"mean_squared_error": trial_value})# mlflowでmetric記録
+        mlflow.log_params(trial.user_attrs)  # mlflowで属性情報記録
+        mlflow.log_params(trial.params)  # mlflowでパラメータ記録
+        mlflow.log_metrics({"mean_squared_error": trial_value})  # mlflowでmetric記録
