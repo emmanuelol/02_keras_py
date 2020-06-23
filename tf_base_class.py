@@ -14,7 +14,7 @@ Usage:
 
     # optunaでパラメータチューニング
     # 変更するパラメータは Objective.get_class_fine_tuning_parameter_suggestions() で変更する
-    $ python tf_base_class.py -m tuning -n_t 5 -t_out_dir D:\work\chart_model\output\model\tf_base_class_py\optuna
+    $ python tf_base_class.py -m tuning -n_t 15 -t_out_dir D:\work\chart_model\output\model\tf_base_class_py\optuna
 """
 import os
 import sys
@@ -140,6 +140,7 @@ def get_class_fine_tuning_parameter_base() -> dict:
         'is_lr_finder': False
     }
 
+
 def train_directory(args):
     """指定ディレクトリについてgenerator作ってモデル学習"""
     print('train_directory')
@@ -229,6 +230,7 @@ def train_directory(args):
 
     return hist
 
+
 def pred_directory(args):
     """指定ディレクトリについてモデル予測"""
     # ### test data load ### #
@@ -269,6 +271,7 @@ def pred_directory(args):
     # 混同行列作成
     base_predict.conf_matrix_from_pred_classes_generator(pred_tta_df, args['classes'], args['output_dir'])
 
+
 class OptunaCallback(keras.callbacks.Callback):
     """
     Optunaでの枝刈り（最終的な結果がどのぐらいうまくいきそうかを大まかに予測し、良い結果を残すことが見込まれない試行は、最後まで行うことなく早期終了）
@@ -287,6 +290,7 @@ class OptunaCallback(keras.callbacks.Callback):
             if self.trial.should_prune(epoch):
                 # MedianPrunerのデフォルトの設定で、最初の5trialをたたき台して使って、以降のtrialで打ち切っていく
                 raise optuna.structs.TrialPruned()
+
 
 class Objective(object):
 
@@ -490,35 +494,37 @@ class Objective(object):
     def __call__(self, trial):
         args = self.get_class_fine_tuning_parameter_suggestions(trial)
         print(args)
+        # optuna v0.18以上だとtryで囲まないとエラーでtrial落ちる
+        try:
+            trial_best_loss = 1000.0
+            #trial_best_err = 1000.0
 
-        trial_best_loss = 1000.0
-        #trial_best_err = 1000.0
+            # train
+            hist = self.trial_train_directory(trial, args)
 
-        hist = self.trial_train_directory(trial, args)
+            check_loss = np.min(hist.history['val_loss'])  # check_dataは小さい方が精度良いようにしておく
+            if check_loss < trial_best_loss:
+                print('check_loss, trial_best_loss:', str(check_loss), str(trial_best_loss))
+                trial_best_loss = check_loss
+                if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5')) == True:
+                    shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5'), os.path.join(args['output_dir'], 'best_trial_loss.h5'))
 
-        check_loss = np.min(hist.history['val_loss'])  # check_dataは小さい方が精度良いようにしておく
-        if check_loss < trial_best_loss:
-            print('check_loss, trial_best_loss:', str(check_loss), str(trial_best_loss))
-            trial_best_loss = check_loss
-            if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5')) == True:
-                shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5'), os.path.join(args['output_dir'], 'best_trial_loss.h5'))
+            #check_err = 1.0 - np.max(hist.history['val_acc']) # check_dataは小さい方が精度良いようにしておく
+            #if check_err < trial_best_err:
+            #    print('check_err, trial_best_err:', str(check_err), str(trial_best_err))
+            #    trial_best_err = check_err
+            #    if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5')) == True:
+            #        shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5'), os.path.join(args['output_dir'], 'best_trial_acc.h5'))
 
-        #check_err = 1.0 - np.max(hist.history['val_acc']) # check_dataは小さい方が精度良いようにしておく
-        #if check_err < trial_best_err:
-        #    print('check_err, trial_best_err:', str(check_err), str(trial_best_err))
-        #    trial_best_err = check_err
-        #    if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5')) == True:
-        #        shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5'), os.path.join(args['output_dir'], 'best_trial_acc.h5'))
+            # acc とloss の記録
+            trial.set_user_attr('loss', np.min(hist.history['loss']))
+            trial.set_user_attr('val_loss', np.min(hist.history['val_loss']))
 
-        # acc とloss の記録
-        trial.set_user_attr('loss', np.min(hist.history['loss']))
-        trial.set_user_attr('val_loss', np.min(hist.history['val_loss']))
-
-        try: # optuna v0.18以上だとtryで囲まないとエラーでtrial落ちる
             return np.min(hist.history['val_loss'])
         except Exception as e:
-            traceback.print_exc() # Exceptionが発生した際に表示される全スタックトレース表示
-            return e # 例外を返さないとstudy.csvにエラー内容が記載されない
+            traceback.print_exc()  # Exceptionが発生した際に表示される全スタックトレース表示
+            return e  # 例外を返さないとstudy.csvにエラー内容が記載されない
+
 
 if __name__ == '__main__':
     import matplotlib
