@@ -253,6 +253,8 @@ def get_base_cb(output_dir, epochs, cosine_annealing_num_epoch=None, early_stopp
     cb.append(keras.callbacks.ModelCheckpoint(filepath=os.path.join(output_dir, 'best_val_acc.h5'), monitor='val_acc', save_best_only=True, verbose=1, mode='max'))
     # 過学習の抑制 <early_stopping_pati>step続けてval_loss減らなかったら打ち切る
     cb.append(keras.callbacks.EarlyStopping(monitor='val_loss', patience=early_stopping, verbose=1))
+    # 損失がNaNになった時に訓練を終了
+    cb.append(keras.callbacks.TerminateOnNaN())
     return cb
 
 class RocAucCallbackGenerator(keras.callbacks.Callback):
