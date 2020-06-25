@@ -238,7 +238,7 @@ def tsv_logger(filename, append=False):
     return _TSVLogger(filename=filename, append=append)#, enabled=enabled)
 
 
-def get_base_cb(output_dir, epochs, cosine_annealing_num_epoch=None, early_stopping=50):
+def get_base_cb(output_dir, epochs, cosine_annealing_num_epoch=None, early_stopping=50, monitor='val_loss', metric='acc'):
     """ 基本のcallbackの組み合わせ """
     cb = []
     # 学習率をエポック増やすごとにコサインカーブで上げ下げする. epochsはコサインカーブのほぼ半周期になるエポック数
@@ -250,9 +250,9 @@ def get_base_cb(output_dir, epochs, cosine_annealing_num_epoch=None, early_stopp
     # 各エポックでval_lossが最小となるモデル保存
     cb.append(keras.callbacks.ModelCheckpoint(filepath=os.path.join(output_dir, 'best_val_loss.h5'), monitor='val_loss', save_best_only=True, verbose=1))
     # 各エポックでval_accが最大となるモデル保存
-    cb.append(keras.callbacks.ModelCheckpoint(filepath=os.path.join(output_dir, 'best_val_acc.h5'), monitor='val_acc', save_best_only=True, verbose=1, mode='max'))
+    cb.append(keras.callbacks.ModelCheckpoint(filepath=os.path.join(output_dir, f'best_val_{metric}.h5'), monitor=f'val_{metric}', save_best_only=True, verbose=1, mode='max'))
     # 過学習の抑制 <early_stopping_pati>step続けてval_loss減らなかったら打ち切る
-    cb.append(keras.callbacks.EarlyStopping(monitor='val_loss', patience=early_stopping, verbose=1))
+    cb.append(keras.callbacks.EarlyStopping(monitor=monitor, patience=early_stopping, verbose=1))
     # 損失がNaNになった時に訓練を終了
     cb.append(keras.callbacks.TerminateOnNaN())
     return cb
