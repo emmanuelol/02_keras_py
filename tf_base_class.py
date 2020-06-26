@@ -201,7 +201,11 @@ def train_directory(args):
     optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
     model.compile(loss=args['loss'], optimizer=optim, metrics=args['metrics'])
 
-    cb = my_callback.get_base_cb(args['output_dir'], args['num_epoch'], early_stopping=args['num_epoch'] // 3)
+    cb = my_callback.get_base_cb(args['output_dir'], args['num_epoch'],
+                                 early_stopping=args['num_epoch'] // 3,
+                                 monitor='val_' + args['metrics'][0],
+                                 metric=args['metrics'][0]
+                                 )
 
     # lr_finder
     if args['is_lr_finder'] == True:
@@ -481,7 +485,11 @@ class Objective(object):
         optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
         model.compile(loss=args['loss'], optimizer=optim, metrics=args['metrics'])
 
-        cb = my_callback.get_base_cb(args['output_dir'], args['num_epoch'], early_stopping=35)# args['num_epoch']//3
+        cb = my_callback.get_base_cb(args['output_dir'], args['num_epoch'],
+                                     early_stopping=35,# args['num_epoch']//3
+                                     monitor='val_' + args['metrics'][0],
+                                     metric=args['metrics'][0]
+                                     )
         cb.append(OptunaCallback(trial, True))
 
         # ### train ### #
