@@ -27,6 +27,11 @@ import traceback
 import pathlib
 from tqdm import tqdm
 
+# tensorflowのINFOレベルのログを出さないようにする
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import tensorflow as tf
+from tensorflow import keras
+
 keras_py_path = r'C:\Users\81908\jupyter_notebook\tfgpu_py36_work\02_keras_py'
 sys.path.append(keras_py_path)
 from dataset import plot_log, util
@@ -39,11 +44,6 @@ from transformer import tf_get_train_valid_test as get_train_valid_test
 from predicter import tf_grad_cam as grad_cam
 from predicter import tf_base_predict as base_predict
 from predicter import roc_curve, conf_matrix, ensemble_predict
-
-# tensorflowのINFOレベルのログを出さないようにする
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow as tf
-from tensorflow import keras
 
 
 def get_class_fine_tuning_parameter_base() -> dict:
@@ -194,6 +194,8 @@ def train_directory(args):
                                                            args['choice_model'],
                                                            trainable=args['trainable'],
                                                            fcpool=args['fcpool'],
+                                                           fcs=args['fcs'],
+                                                           drop=args['drop'],
                                                            activation=args['activation'],
                                                            weights=args['weights'])
     optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
@@ -472,6 +474,8 @@ class Objective(object):
                                                                args['choice_model'],
                                                                trainable=args['trainable'],
                                                                fcpool=args['fcpool'],
+                                                               fcs=args['fcs'],
+                                                               drop=args['drop'],
                                                                activation=args['activation'],
                                                                weights=args['weights'])
         optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
