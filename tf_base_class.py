@@ -230,6 +230,8 @@ def train_directory(args):
     end_time = time.time()
     print("Elapsed Time : {:.2f}sec".format(end_time - start_time))
 
+    model.save(os.path.join(args['output_dir'], 'model_last_epoch.h5'))
+
     plot_log.plot_results(args['output_dir'],
                           os.path.join(args['output_dir'], 'tsv_logger.tsv'),
                           acc_metric=args['metrics'][0])
