@@ -296,6 +296,8 @@ class Objective(object):
 
     def __init__(self, output_dir):
         self.output_dir = output_dir
+        self.trial_best_loss = 1000.0
+        self.trial_best_err = 1000.0
 
     def get_class_fine_tuning_parameter_suggestions(self, trial) -> dict:
         """
@@ -380,9 +382,9 @@ class Objective(object):
             'loss': 'categorical_crossentropy',
             'metrics': ['accuracy'],
             'model_path': None,
-            'num_epoch': 5,
-            'n_multitask': 1, # マルチタスクのタスク数
-            'multitask_pred_n_node': 1, # マルチタスクの各クラス数
+            'num_epoch': 200,
+            'n_multitask': 1,  # マルチタスクのタスク数
+            'multitask_pred_n_node': 1,  # マルチタスクの各クラス数
             # model param
             'weights': 'imagenet',
             #'choice_model': trial.suggest_categorical('choice_model', ['VGG16']),
@@ -395,12 +397,12 @@ class Objective(object):
             'efficientnet_num': trial.suggest_categorical('efficientnet_num', [3, 4, 5, 6, 7]),
             # full layer param
             'fcs': trial.suggest_categorical('fcs', [[], [100], [256], [512, 256], [1024, 512, 256]]),
-            'drop': trial.suggest_categorical('drop', [0.3, 0.5]),
+            'drop': trial.suggest_categorical('drop', [0.0, 0.3, 0.5]),  # 0.0はドロップなし
             'is_add_batchnorm': trial.suggest_categorical('is_add_batchnorm', [True, False]),
             'l2_rate': trial.suggest_categorical('l2_rate', [1e-5, 1e-4, 1e-3]),
             # optimizer param
             #'choice_optim': trial.suggest_categorical('choice_optim', ['sgd', 'adadelta', 'adam', 'adamax', 'nadam', 'adabound']),
-            'choice_optim': trial.suggest_categorical('choice_optim', ['sgd', 'adadelta', 'adam', 'adamax', 'nadam']),
+            'choice_optim': trial.suggest_categorical('choice_optim', ['sgd', 'adam', 'adamax']),
             'lr': trial.suggest_categorical('lr', [1e-4, 1e-3, 1e-2, 1e-1]),
             #'decay': trial.suggest_categorical('decay', [0.0, 1e-6, 1e-5, 1e-4]), # 各更新上の学習率減衰
             'decay': 0.0,
@@ -475,7 +477,7 @@ class Objective(object):
         optim = define_model.get_optimizers(choice_optim=args['choice_optim'], lr=args['lr'], decay=args['decay'])
         model.compile(loss=args['loss'], optimizer=optim, metrics=args['metrics'])
 
-        cb = my_callback.get_base_cb(args['output_dir'], args['num_epoch'], early_stopping=args['num_epoch']//3)
+        cb = my_callback.get_base_cb(args['output_dir'], args['num_epoch'], early_stopping=35)# args['num_epoch']//3
         cb.append(OptunaCallback(trial, True))
 
         # ### train ### #
@@ -496,25 +498,22 @@ class Objective(object):
         print(args)
         # optuna v0.18以上だとtryで囲まないとエラーでtrial落ちる
         try:
-            trial_best_loss = 1000.0
-            #trial_best_err = 1000.0
-
             # train
             hist = self.trial_train_directory(trial, args)
 
             check_loss = np.min(hist.history['val_loss'])  # check_dataは小さい方が精度良いようにしておく
-            if check_loss < trial_best_loss:
-                print('check_loss, trial_best_loss:', str(check_loss), str(trial_best_loss))
-                trial_best_loss = check_loss
-                if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5')) == True:
-                    shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_loss.h5'), os.path.join(args['output_dir'], 'best_trial_loss.h5'))
+            if check_loss < self.trial_best_loss:
+                print('check_loss, trial_best_loss:', str(check_loss), str(self.trial_best_loss))
+                self.trial_best_loss = check_loss
+                if os.path.exists(os.path.join(args['output_dir'], 'best_val_loss.h5')) == True:
+                    shutil.copyfile(os.path.join(args['output_dir'], 'best_val_loss.h5'), os.path.join(args['output_dir'], 'best_trial_loss.h5'))
 
-            #check_err = 1.0 - np.max(hist.history['val_acc']) # check_dataは小さい方が精度良いようにしておく
-            #if check_err < trial_best_err:
-            #    print('check_err, trial_best_err:', str(check_err), str(trial_best_err))
-            #    trial_best_err = check_err
-            #    if os.path.exists(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5')) == True:
-            #        shutil.copyfile(os.path.join(args['output_dir'], 'ModelCheckpoint_val_acc.h5'), os.path.join(args['output_dir'], 'best_trial_acc.h5'))
+            check_err = 1.0 - np.max(hist.history['val_acc']) # check_dataは小さい方が精度良いようにしておく
+            if check_err < self.trial_best_err:
+                print('check_err, trial_best_err:', str(check_err), str(self.trial_best_err))
+                self.trial_best_err = check_err
+                if os.path.exists(os.path.join(args['output_dir'], 'best_val_acc.h5')) == True:
+                    shutil.copyfile(os.path.join(args['output_dir'], 'best_val_acc.h5'), os.path.join(args['output_dir'], 'best_trial_acc.h5'))
 
             # acc とloss の記録
             trial.set_user_attr('loss', np.min(hist.history['loss']))
