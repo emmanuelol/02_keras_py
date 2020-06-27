@@ -97,7 +97,7 @@ class GradCAM:
                 return layer.name
         raise ValueError("Could not find 4D layer. Cannot apply GradCAM.")
 
-    def compute_heatmap(self, X:np.ndarray, eps=1e-8):
+    def compute_heatmap(self, X: np.ndarray, eps=1e-8):
         """
         Grad-CAM計算してヒートマップ返す
         Args:
@@ -106,17 +106,16 @@ class GradCAM:
         """
         # 1. modelから勾配計算するモデルを構築
         # 出力(outputs)をlayerNameの層と出力層の2つ出す
-        gradModel = keras.models.Model(inputs=[self.model.inputs]
-                                        , outputs=[self.model.get_layer(self.layerName).output, self.model.output])
+        gradModel = keras.models.Model(inputs=[self.model.inputs], outputs=[self.model.get_layer(self.layerName).output, self.model.output])
 
         # 2. tf.GradientTape（自動微分するのためのAPI。値を計算し、その値の導関数を計算する）で勾配を計算
         with tf.GradientTape() as tape:
             # 画像テンソルをfloat-32データ型にキャストし、画像を勾配モデルに渡し、特定のクラスインデックスに関連する損失を取得
-            inputs = tf.cast(X, tf.float32) # 勾配計算するために画像テンソルをfloat-32データ型にキャスト
+            inputs = tf.cast(X, tf.float32)  # 勾配計算するために画像テンソルをfloat-32データ型にキャスト
             # 勾配計算するモデルでXを順伝播
             # layerNameの層の出力(=convOutputs:サイズが(1, 3, 3, 512)みたいな4次元テンソル)と出力層の出力(=predictions:クラス数の1次元テンソル。tf.Tensor([[0.98 0.02]])みたいなの)がでてくる
             (convOutputs, predictions) = gradModel(inputs)
-            loss = predictions[:, self.classIdx] # 確認するclassIdxについての予測値だけとる。tf.Tensor([[0.98]])みたいなの
+            loss = predictions[:, self.classIdx]  # 確認するclassIdxについての予測値だけとる。tf.Tensor([[0.98]])みたいなの
         # tf.GradientTapeを使用し、予測値とlayerNameの層について勾配を計算。convOutputsのサイズと同じ4次元テンソルができる
         grads = tape.gradient(loss, convOutputs)
 
@@ -144,14 +143,14 @@ class GradCAM:
         # 7. すべての値が範囲内に収まるようにヒートマップを正規化する
         numer = heatmap - np.min(heatmap)
         denom = (heatmap.max() - heatmap.min()) + eps
-        heatmap = numer / denom # 値が[0、1]の範囲になる
-        heatmap = (heatmap * 255).astype("uint8") # 画像に戻すために255掛けて、符号なし8ビット整数に変換
+        heatmap = numer / denom  # 値が[0、1]の範囲になる
+        heatmap = (heatmap * 255).astype("uint8")  # 画像に戻すために255掛けて、符号なし8ビット整数に変換
 
         # heatmapは画像内でネットワークがアクティブ化された場所の単一チャネルのグレースケール表現
         # 大きい値は高いアクティブ化に対応し、小さい値は低いアクティブ化に対応
         return heatmap
 
-    def overlay_heatmap(self, heatmap:np.ndarray, x:np.ndarray, alpha=0.5, colormap=cv2.COLORMAP_JET):# cv2.COLORMAP_VIRIDIS
+    def overlay_heatmap(self, heatmap: np.ndarray, x: np.ndarray, alpha=0.5, colormap=cv2.COLORMAP_JET):  # cv2.COLORMAP_VIRIDIS
         """
         Grad-CAMのヒートマップと元画像を重ねた画像を返す
         Args:

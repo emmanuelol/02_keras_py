@@ -139,8 +139,7 @@ def pred_classes_evaluate_generator(model, generator, steps=None):
     return scoreSeg[0], scoreSeg[1]
 
 
-def pred_from_1img(model, pred_path, img_rows, img_cols
-                    , classes=None, show_img=True):
+def pred_from_1img(model, pred_path, img_rows, img_cols, classes=None, show_img=True):
     """
     1件のファイルパスから予測実行し、確率最大のラベル表示し、確率最大のidとscoreを返す
     classesはクラス名のリスト。Noneなら予測ラベル名出さない
