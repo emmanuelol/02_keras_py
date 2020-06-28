@@ -96,9 +96,9 @@ def conf_matrix_from_pred_classes_generator(pred_df, classes, output_dir, is_lab
     """
     #----pred_classes_generator() でだした値から conf_matrix.make_confusion_matrix() で混同行列作るための前処理 ----#
     # 予測ラベル(id)をnumpyに変換
-    y_pred_list = pred_df['PredictionLabel'].values.tolist() # リストに変換
-    y_pred_list_str = [str(i) for i in y_pred_list] # リストの中身を文字型に変換
-    y_pred_np = np.array(y_pred_list_str) # リストをnumpyに変換
+    y_pred_list = pred_df['PredictionLabel'].values.tolist()  # リストに変換
+    y_pred_list_str = [str(i) for i in y_pred_list]  # リストの中身を文字型に変換
+    y_pred_np = np.array(y_pred_list_str)  # リストをnumpyに変換
 
     if y_true_label_np is None:
         # y_true_label_np=Noneならファイルパスから正解ラベル取得し、numpyに変換（flow_from_directory用）

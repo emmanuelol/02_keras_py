@@ -532,6 +532,7 @@ class Objective(object):
             # acc とloss の記録
             trial.set_user_attr('loss', np.min(hist.history['loss']))
             trial.set_user_attr('val_loss', np.min(hist.history['val_loss']))
+            trial.set_user_attr('val_acc', np.max(hist.history['val_acc']))
 
             return np.min(hist.history['val_loss'])
         except Exception as e:
