@@ -233,7 +233,7 @@ def nobranch_multi_grad_cam(model, out_grad_cam_dir, input_img_name, x, y_true
        最後のtaskのGrad-cam画像1枚（内部処理で全taskのGradCam画像を出力してる）
     """
     if img_rows is None or img_cols is None:
-        shape = [model.input_shape[1], model.input_shape[2], model.input_shape[3]] # モデルオブジェクトの入力層のサイズ取得
+        shape = [model.input_shape[1], model.input_shape[2], model.input_shape[3]]  # モデルオブジェクトの入力層のサイズ取得
         img_rows, img_cols = shape[0], shape[1]
 
     if layer_name is None:
