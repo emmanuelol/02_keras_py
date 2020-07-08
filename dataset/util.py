@@ -746,6 +746,323 @@ def set_tf_random_seed(seed=0):
     tf.random.set_seed(seed)  # v1.0系だとtf.set_random_seed(seed)
 
 
+# クラスタリング結果の評価指標であるPseudo Fが高いクラスタ数でkmeans計算
+def pseudof_best_kmeans_df(df, max_n_clusters=10, random_state=11, is_plot=True):
+    """
+    クラスタリング結果の評価指標であるPseudo Fが高いクラスタ数でkmeans計算
+    Pseudo Fは大きいほうが良い
+    元のデータフレームにbest kmeansのラベル列追加したものを返す
+    Usage:
+        import warnings
+        warnings.filterwarnings("ignore")
+        import numpy as np
+        import pandas as pd
+        from sklearn.preprocessing import StandardScaler  # 平均0、分散1に変換する正規化（標準化）
+        from sklearn.preprocessing import MinMaxScaler  # 最小値0、最大値1にする正規化
+
+        import seaborn as sns
+        iris = sns.load_dataset("iris")
+        df_x = iris.drop("species", axis=1)  # 説明変数
+        df_x = pd.DataFrame(StandardScaler().fit_transform(df_x))  # 標準化
+
+        df_x_kmeans = pseudof_best_kmeans_df(df_x)
+    """
+    import pandas as pd
+    from sklearn.cluster import KMeans
+    import matplotlib.pyplot as plt
+
+    # 欠損レコード削除
+    df = df.replace('None', np.nan).dropna()
+    # 数値列の列名だけにする
+    cols = [col for col in df.columns if df[col].dtype.name not in ['object', 'category', 'bool']]
+    df = df[cols]
+    for col in cols:
+        # 数値型の列なら実行
+        df[col] = df[col].astype(float)  # 少数点以下を扱えるようにするためfloat型に変換
+
+    # 準備：結果を格納するための変数
+    df_score = pd.DataFrame(columns=["k", "pseudoF"])
+
+    # 準備：1つのクラスタに分ける
+    kmeans_all = KMeans(n_clusters=1,
+                        random_state=random_state).fit(df)
+
+    # クラスタ数kを2から10までループ
+    for k in range(2, max_n_clusters + 1):
+        # K-means法によってk個のクラスタに分割
+        kmeans = KMeans(n_clusters=k,
+                        random_state=random_state).fit(df)
+
+        # pseudo-Fの分子の計算
+        nu = (kmeans_all.inertia_ - kmeans.inertia_) / (kmeans.n_clusters - 1)
+        # pseudo-Fの分母の計算
+        de = kmeans.inertia_ / (df.iloc[:,1].count() - kmeans.n_clusters)
+        # pseudo-Fの計算
+        pseudoF = nu / de
+        # 結果の格納
+        df_score = df_score.append(pd.DataFrame([[float(k), pseudoF]], columns=["k", "pseudoF"]))
+    df_score = df_score.reset_index(drop=True)
+
+    if is_plot:
+        # 結果のプロット
+        print(df_score)
+        df_score.plot.scatter(x="k", y="pseudoF")
+        plt.show()
+
+    # best kmeans
+    best_k = df_score.iloc[df_score['pseudoF'].argmax()]['k']
+    print("INFO: Pseudo F best KMeans n_clusters {}".format(int(best_k)))
+    clusters = KMeans(n_clusters=int(best_k), random_state=random_state).fit(df)
+    df["group"] = clusters.labels_  # kmeansのラベル列追加
+
+    return df
+
+
+# sklearnの回帰モデルをGridSearch
+def gridsearch_reg_df(df_x, df_y,
+                      sklearn_reg,
+                      tuned_parameters: list,
+                      test_size=0.3,
+                      cv=5,
+                      scoring='neg_mean_squared_error',
+                      random_state=17,
+                      is_plot=True
+                      ):
+    """
+    sklearnの回帰モデルをGridSearch
+    Usage:
+        import numpy as np
+        import pandas as pd
+        from sklearn.linear_model import LinearRegression, ElasticNet
+        from sklearn.preprocessing import StandardScaler  # 平均0、分散1に変換する正規化（標準化）
+        from sklearn.preprocessing import MinMaxScaler  # 最小値0、最大値1にする正規化
+
+        import seaborn as sns
+        iris = sns.load_dataset("iris")
+        display(iris.head())
+
+        # Species列を取り除く
+        data_all = iris.drop("species", axis=1)
+
+        df_x = data_all.drop("petal_length", axis=1)  # 説明変数
+        df_x = pd.DataFrame(StandardScaler().fit_transform(df_x))  # 標準化
+
+        df_y = data_all[["petal_length"]]  # 目的変数
+
+        #sklearn_reg = LinearRegression()  # 線形回帰モデル
+        #tuned_parameters = [{"n_jobs" : [1]}]  # ハイパーパラメータ 使うコア数
+
+        sklearn_reg = ElasticNet()  # Elastic Net（l1,l2正則化加えた線形回帰モデル）
+        tuned_parameters = [{"l1_ratio" : 0.1 * np.arange(0,11) + 0.1,  # l1正則化の大きさ  ElasticNetなので、l2正則化の大きさは 1 − l1_ratio になる
+                             "alpha"    : pow(10, -1.0 * np.arange(0,11))  # l1_ratio と 1 − l1_ratio にかける重み。デフォルトは1.0
+                            }]
+
+        gs_reg = gridsearch_reg_df(df_x, df_y, sklearn_reg, tuned_parameters)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from sklearn import model_selection
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+    # 教師データとテストデータの分割
+    train_x, test_x, train_y, test_y = train_test_split(df_x, df_y,
+                                                        test_size=test_size,
+                                                        random_state=random_state)
+    # パラメータのセット
+    # CVは目安ではありますが、分割数の上限としては、擬似的な テストデータ の数が20行(レコード)を下回らないように調整するとよい
+    gs_reg = model_selection.GridSearchCV(sklearn_reg,  # model指定
+                                          param_grid=tuned_parameters,  # ハイパーパラメータ
+                                          cv=cv,  # 交差検証を指定
+                                          scoring=scoring  # GridSearchCVのscoringでMSE(平均二乗誤差)指定する場合は'neg_mean_squared_error'
+                                         )
+    # 学習
+    gs_reg.fit(train_x, train_y)
+
+    # 係数の確認
+    print("\n回帰式の各重み（係数）")
+    print(list(df_x.columns))
+    print(gs_reg.best_estimator_.coef_)
+
+    print("\nIntercept（回帰式の切片）")
+    print(gs_reg.best_estimator_.intercept_)
+
+    # 損失関数のスコア
+    print("\nloss")
+    print(gs_reg.best_score_)
+
+    # 評価
+    # テストデータ に対する予測値を算出
+    # 予測値をpred列としてtest_yに追加する
+    pred = gs_reg.best_estimator_.predict(test_x)
+    test_y['pred'] = pred
+    print(test_y.head())
+
+    # MAE(平均絶対誤差): モデルからデータの平均距離
+    # MAEは誤差をそのまま使っているため、予想を外した点があってもRMSEほどは評価値に影響しない
+    print("\nMAE(平均絶対誤差)")
+    print(mean_absolute_error(test_y.iloc[:, 0], test_y["pred"]))
+
+    # RMSE(二乗平均平方根誤差): モデルからデータの平均二乗距離の平方根
+    # 予測を外す点を厳しく評価したい場合にはRMSEを使用したほうがよい
+    print("\nRMSE(二乗平均平方根誤差)")
+    print(np.sqrt(mean_squared_error(test_y.iloc[:, 0], test_y["pred"])))
+
+    if is_plot:
+        # 予測値の可視化
+        # 正解値と予測値を描画する(予測がぴったりならば線上に乗る)
+        test_y.plot.scatter(x=test_y.columns[0], y="pred", figsize=(10,8))
+        plt.plot(np.arange(8), np.arange(8))             # y=xの線
+        plt.xlim(1, 7)                                   # x軸の範囲
+        plt.ylim(1, 7)                                   # y軸の範囲
+        plt.show()
+
+    return gs_reg
+
+
+# sklearnの分類モデルをGridSearch
+def gridsearch_class_df(df_x, df_y,
+                        sklearn_class,
+                        tuned_parameters: list,
+                        test_size=0.3,
+                        cv=5,
+                        random_state=71,
+                        is_plot=True
+                        ):
+    """
+    sklearnの分類モデルをGridSearch
+    Usage:
+        import warnings
+        warnings.filterwarnings("ignore")
+
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.tree import DecisionTreeClassifier
+        from sklearn.svm import SVC
+        from sklearn.preprocessing import StandardScaler  # 平均0、分散1に変換する正規化（標準化）
+        from sklearn.preprocessing import MinMaxScaler  # 最小値0、最大値1にする正規化
+
+        import seaborn as sns
+        iris = sns.load_dataset("iris")
+        display(iris.head())
+        data_all = iris.copy()
+
+        df_x = data_all.drop("species", axis=1)  # 説明変数
+        df_x = pd.DataFrame(StandardScaler().fit_transform(df_x))  # 標準化（決定木ベースのモデルについては規格化必要ない）
+
+        df_y = data_all[["species"]]  # 目的変数
+
+        # K近傍法
+        sklearn_class = KNeighborsClassifier()
+        tuned_parameters = [{#"n_neighbors" : [7],  # 近傍数
+                             "n_neighbors" : np.arange(1, 20, 2),  # 近傍数
+                             "weights"     : ["distance"]  # データ間の距離の指標
+                            }]
+
+        # ロジスティック回帰
+        sklearn_class = LogisticRegression()
+        tuned_parameters = [{#"C"                 : [1.0],  # Cは正則化(penalty)の度合いのパラメータ
+                             "C"                 : pow(10, 1.0 * np.arange(-5, 5)),  # Cは正則化(penalty)の度合いのパラメータ
+                             "penalty"           : ["l2"],  # penaltyは正則化項。l1がLasso回帰(L1正則化)、l2ならRidge回帰(L2正則化)
+                             "fit_intercept"     : [False]
+                            }]
+
+        # 決定木
+        sklearn_class = DecisionTreeClassifier()
+        #tuned_parameters = [{"max_depth" : [3]}]  # 木の深さ
+        tuned_parameters = [{"max_depth" : np.arange(2, 10)}]  # 木の深さ
+
+        # SVM
+        sklearn_class = SVC(probability=True)
+        # パラメータのカーネルは RBFカーネル で固定とする
+        # コストが小さい場合には数点の誤分類は許容し、コストが大きい場合にはなるべく誤分類がないように分類していきます。
+        # 複雑さが小さい場合には簡単な境界線(直線)になり、複雑さが大きい場合には複雑な境界面になります。
+        tuned_parameters = [{#"C"     : [1],  # C:誤分類に対するコスト(ペナルティ)
+                             "C"     : pow(10 , 1.0 * np.arange(-4, 6, 2) ),
+                             #"gamma" : [0.01]  # gamma:分割面の複雑さを表す(大きいほど複雑)
+                             "gamma" : pow(10 , 1.0 * np.arange(-4, 6, 2))
+                            }]
+
+        gs_clf = gridsearch_class_df(df_x, df_y, sklearn_class, tuned_parameters)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from sklearn import model_selection, metrics, tree
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import precision_recall_curve, auc
+    import pydotplus
+
+    # 教師データとテストデータの分割
+    train_x, test_x, train_y, test_y = train_test_split(df_x, df_y,
+                                                        test_size=test_size,
+                                                        random_state=random_state)
+    # パラメータのセット
+    # CVは目安ではありますが、分割数の上限としては、擬似的な テストデータ の数が20行(レコード)を下回らないように調整するとよい
+    gs_clf = model_selection.GridSearchCV(sklearn_class,  # model指定
+                                          param_grid=tuned_parameters,  # ハイパーパラメータ
+                                          cv=cv,  # 交差検証を指定
+                                          )
+    # 学習
+    gs_clf.fit(train_x, train_y)
+
+    # スコア(正確度)
+    print("\nスコア")
+    print(gs_clf.best_score_)
+
+    # 評価
+    # テストデータ に対する予測値を算出
+    # 予測値をpred列, 各クラスの予測確率をpred_proba_列としてtest_yに追加する
+    pred = gs_clf.best_estimator_.predict(test_x)
+    test_y['pred'] = pred
+    for i, class_name in enumerate(gs_clf.classes_):
+        test_y[f'pred_proba_{class_name}'] = gs_clf.best_estimator_.predict_proba(test_x)[:, i]
+    print(test_y.head())
+
+    # 混同行列
+    cm = metrics.confusion_matrix(test_y.iloc[:, 0], test_y["pred"])
+    print("\n混同行列")
+    print(cm)
+
+    # 正確率
+    print("\naccuracy:")
+    print(cm.diagonal().sum() / cm.sum())
+
+    # AUC
+    print("\nAUC")
+    for i, class_name in enumerate(gs_clf.classes_):
+        precision, recall, thresholds = precision_recall_curve(test_y.iloc[:, 0],
+                                                               test_y[f"pred_proba_{class_name}"],
+                                                               pos_label=class_name)
+        print(class_name + ':', auc(recall, precision))
+
+    # best param
+    print(f"\n{sklearn_class.__class__.__name__} best param")
+    print(gs_clf.best_params_)
+
+    if sklearn_class.__class__.__name__ == "LogisticRegression":
+        # ロジスティクス回帰について
+        print("\nオッズ比の確認")
+        print(list(df_x.columns))
+        print(np.exp(gs_clf.best_estimator_.coef_))
+
+    if sklearn_class.__class__.__name__ == "DecisionTreeClassifier":
+        # 決定木についてGraphviz描画用ファイルの出力
+        tree.export_graphviz(gs_clf.best_estimator_,  # model
+                             out_file="dtree.dot",  # ファイル名
+                             feature_names=train_x.columns,  # 特徴量名
+                             class_names=train_y.iloc[:,0].unique(),  # クラス名
+                             filled=True  # 色を塗る
+                             )
+        # dotファイルをpngに変換
+        graph = pydotplus.graphviz.graph_from_dot_file('dtree.dot')
+        graph.write_png('dtree.png')
+        ## jupyterで決定木の画像表示
+        #from IPython.display import Image, display_png
+        #display_png(Image(graph.create_png()))
+
+    return gs_clf
+
+
 def test_func():
     """
     テスト駆動開発でのテスト関数
