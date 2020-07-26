@@ -7,6 +7,7 @@ fit_generator( , class_weight={} )class_weight 作成用関数
 import os, sys, math
 import numpy as np
 
+
 def cal_weight_flow(class_id_list):
     """
     https://qiita.com/Alshain/items/3415b14c077cbfdadaea
@@ -26,9 +27,10 @@ def cal_weight_flow(class_id_list):
         amounts_of_class_array = amounts_of_class_array + class_id
     mx = np.max(amounts_of_class_array)
     class_weights = {}
-    for q in range(0,len(amounts_of_class_array)):
-        class_weights[q] = round(float(math.pow(amounts_of_class_array[q]/mx, -1)),2)
+    for q in range(0, len(amounts_of_class_array)):
+        class_weights[q] = round(float(math.pow(amounts_of_class_array[q] / mx, -1)), 2)
     return class_weights
+
 
 def cal_weight(class_name_list, IN_DIR):
     """
@@ -48,6 +50,8 @@ def cal_weight(class_name_list, IN_DIR):
     class_weights = {}
     count = 0
     for class_name in class_name_list:
-        class_weights[count] = round(float(math.pow(amounts_of_class_dict[class_name]/mx, -1)),2) #重み＝（データ数/最大値）の逆数
+        class_weights[count] = round(
+            float(math.pow(amounts_of_class_dict[class_name] / mx, -1)), 2
+        )  # 重み＝（データ数/最大値）の逆数
         count += 1
     return class_weights
