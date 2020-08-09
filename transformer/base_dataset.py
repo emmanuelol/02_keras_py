@@ -8,7 +8,10 @@ import cv2
 import numpy as np
 from sklearn import preprocessing as pp
 
-def load_my_data(dir_path:str, classes=[], img_height=0, img_width=0, channel=3, is_pytorch=True):
+
+def load_my_data(
+    dir_path: str, classes=[], img_height=0, img_width=0, channel=3, is_pytorch=True
+):
     """
     自分で用意した学習データセット読み込み
     https://github.com/yoyoyo-yo/DeepLearningMugenKnock/tree/master/Question_dataset
@@ -34,30 +37,32 @@ def load_my_data(dir_path:str, classes=[], img_height=0, img_width=0, channel=3,
     """
     # クラス名の指定ない場合ディレクトリ名をクラス名にする
     if len(classes) == 0:
-        cla_dir_paths = sorted(glob.glob(str(pathlib.Path(dir_path) / '*')))
+        cla_dir_paths = sorted(glob.glob(str(pathlib.Path(dir_path) / "*")))
         classes = [pathlib.Path(cla_dir_path).name for cla_dir_path in cla_dir_paths]
-        classes = [f for f in classes if os.path.isdir(os.path.join(dir_path, f))] # ディレクトリだけ取得
+        classes = [
+            f for f in classes if os.path.isdir(os.path.join(dir_path, f))
+        ]  # ディレクトリだけ取得
     print(f"classes: {classes}")
 
     # 画像の学習データセット、教師データセット、ファイルパスを用意
     xs = np.ndarray((0, img_height, img_width, channel))
     ts = np.ndarray((0))
     paths = []
-    for cla_dir_path in glob.glob(str(pathlib.Path(dir_path) / '*')):
-        #print(cla_dir_path)
-        for path in glob.glob(str(pathlib.Path(cla_dir_path) / '*')):
+    for cla_dir_path in glob.glob(str(pathlib.Path(dir_path) / "*")):
+        # print(cla_dir_path)
+        for path in glob.glob(str(pathlib.Path(cla_dir_path) / "*")):
             # 画像サイズの指定があれば画像ロード
             if img_width != 0 and img_height != 0:
-                #print(path)
+                # print(path)
                 x = cv2.imread(path)
-                #assert comparing_img is not None, "読込に失敗しました"
+                # assert comparing_img is not None, "読込に失敗しました"
                 x = cv2.resize(x, (img_width, img_height)).astype(np.float32)
-                x /= 255.
+                x /= 255.0
                 xs = np.r_[xs, x[None, ...]]
 
             t = np.zeros((1))
-            for i,cla in enumerate(classes):
-                #print(i, cla)
+            for i, cla in enumerate(classes):
+                # print(i, cla)
                 if cla in path:
                     t = np.array((i))
                     break
@@ -68,13 +73,14 @@ def load_my_data(dir_path:str, classes=[], img_height=0, img_width=0, channel=3,
     if is_pytorch:
         if img_width != 0 and img_height != 0:
             # PyTorch, Chainer, Caffe [データ数、チャネル、画像の縦サイズ、画像の横サイズ]
-            xs = xs.transpose(0,3,1,2)
+            xs = xs.transpose(0, 3, 1, 2)
     else:
         # 教師データone-hot化
         lb = pp.LabelBinarizer()
         ts = lb.fit_transform(ts)
 
     return xs, ts, paths
+
 
 def make_batch(paths, ts=None, mb=12):
     """
@@ -89,22 +95,25 @@ def make_batch(paths, ts=None, mb=12):
     np.random.seed(0)
     np.random.shuffle(train_ind)
     mb_paths = []
-    mb_ts = [] # ラベル
-    for i in range(len(paths)//mb):
+    mb_ts = []  # ラベル
+    for i in range(len(paths) // mb):
         if mbi + mb > len(paths):
             mb_ind = copy.copy(train_ind)[mbi:]
             np.random.shuffle(train_ind)
-            mb_ind = np.hstack((mb_ind, train_ind[:(mb-(len(paths)-mbi))]))
+            mb_ind = np.hstack((mb_ind, train_ind[: (mb - (len(paths) - mbi))]))
             mbi = mb - (len(paths) - mbi)
         else:
-            mb_ind = train_ind[mbi: mbi+mb]
+            mb_ind = train_ind[mbi : mbi + mb]
             mbi += mb
         print(f"{i} {mb_ind}")
         mb_paths.append([paths[ind] for ind in mb_ind])
         mb_ts.append([ts[ind] for ind in mb_ind])
     return mb_paths, np.array(mb_ts)
 
-def load_mb_xs(mb_path:list, img_height=224, img_width=224, channel=3, is_pytorch=True):
+
+def load_mb_xs(
+    mb_path: list, img_height=224, img_width=224, channel=3, is_pytorch=True
+):
     """
     ミニバッチ単位で画像ロード
     https://github.com/yoyoyo-yo/DeepLearningMugenKnock/tree/master/Question_dataset
@@ -118,9 +127,9 @@ def load_mb_xs(mb_path:list, img_height=224, img_width=224, channel=3, is_pytorc
     for path in mb_path:
         x = cv2.imread(path)
         x = cv2.resize(x, (img_width, img_height)).astype(np.float32)
-        x /= 255.
+        x /= 255.0
         mb_xs = np.r_[mb_xs, x[None, ...]]
     if is_pytorch:
         # PyTorch, Chainer, Caffe [データ数、チャネル、画像の縦サイズ、画像の横サイズ]
-        mb_xs = mb_xs.transpose(0,3,1,2)
+        mb_xs = mb_xs.transpose(0, 3, 1, 2)
     return mb_xs

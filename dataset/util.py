@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import cv2
+from sklearn.metrics import f1_score
+from scipy.optimize import minimize
+from sklearn.metrics import mean_squared_error
 
 
 def find_all_files(directory):
@@ -22,12 +25,12 @@ def find_all_files(directory):
 
 def file_count(path, search):
     """ディレクトリ再帰的になめて<search>の文字持つファイルの数を返す"""
-    files = glob.glob(os.path.join(path, '**'), recursive=True)
+    files = glob.glob(os.path.join(path, "**"), recursive=True)
     newlist = []
     for l in files:
         if search in l:
             newlist.append(l)
-    return(len(newlist))
+    return len(newlist)
 
 
 def show_np_img(x, is_grayscale=False):
@@ -53,13 +56,13 @@ def show_file_img(img_path):
     plt.show()
 
 
-def show_file_crop_img(img_path, ymin, ymax, xmin, xmax, label=''):
+def show_file_crop_img(img_path, ymin, ymax, xmin, xmax, label=""):
     """ファイルパスから画像データを指定領域だけ表示させる"""
     image = cv2.imread(img_path)
     img_RGB = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     dst = img_RGB[ymin:ymax, xmin:xmax]
-    plt.imshow(dst / 255.)
-    plt.title(str(label) + ' ' + str(dst.shape))
+    plt.imshow(dst / 255.0)
+    plt.title(str(label) + " " + str(dst.shape))
     plt.show()
 
 
@@ -68,7 +71,18 @@ def save_crop_img(img_path, ymin, ymax, xmin, xmax, out_dir=None):
     img = Image.open(img_path)
     crop_img = img.crop((int(xmin), int(ymin), int(xmax), int(ymax)))
     if out_dir is not None:
-        save_name = str(pathlib.Path(img_path).stem) + '_' + str(ymin) + '_' + str(ymax) + '_' + str(xmin) + '_' + str(xmax) + ".jpg"
+        save_name = (
+            str(pathlib.Path(img_path).stem)
+            + "_"
+            + str(ymin)
+            + "_"
+            + str(ymax)
+            + "_"
+            + str(xmin)
+            + "_"
+            + str(xmax)
+            + ".jpg"
+        )
         crop_img.save(os.path.join(out_dir, save_name))
     return crop_img
 
@@ -106,7 +120,7 @@ def plot_5imgs(img_list, plot_num=10, figsize=(10, 8), labels=None, is_gray=Fals
         else:
             plt.imshow(img)
         if labels is not None:
-            plt.title(str(labels[i]) + '\n' + str(img.shape))
+            plt.title(str(labels[i]) + "\n" + str(img.shape))
         else:
             plt.title(img.shape)
         plt.xticks([])
@@ -125,11 +139,17 @@ def find_img_files(path):
     https://qiita.com/hasepy/items/8e6a0757da1ce074ce87
     """
     import os
+
     imagePaths = []
     for pathname, dirnames, filenames in os.walk(path):
         for filename in filenames:
             # フィルタ処理
-            if filename.endswith('.png') or filename. endswith('.jpg') or filename.endswith('.PNG') or filename.endswith('.JPG'):
+            if (
+                filename.endswith(".png")
+                or filename.endswith(".jpg")
+                or filename.endswith(".PNG")
+                or filename.endswith(".JPG")
+            ):
                 imagePaths.append(os.path.join(pathname, filename))
     return imagePaths
 
@@ -149,7 +169,7 @@ def get_jpg_png_path_in_dir(dir):
     files = []
     files.extend(jpg_files)
     files.extend(png_files)
-    print('jpg_png_count:', len(files))
+    print("jpg_png_count:", len(files))
     return sorted(files)
 
 
@@ -174,7 +194,7 @@ def ipywidgets_show_img(img_path_list, figsize=(9, 9), is_grayscale=False):
 
     def view_image(index):
         img_path = img_path_list[index]
-        print('index={}, img_path={}'.format(index, img_path))
+        print("index={}, img_path={}".format(index, img_path))
         img = Image.open(img_path)
         img_array = np.asarray(img)
         plt.figure(figsize=figsize)  # 表示サイズ指定
@@ -182,6 +202,7 @@ def ipywidgets_show_img(img_path_list, figsize=(9, 9), is_grayscale=False):
         if is_grayscale == True:
             plt.gray()
         plt.show()
+
     interact(view_image, index=(0, len(img_path_list) - 1))
 
 
@@ -200,16 +221,27 @@ def creat_gif_from_images(output_gif_path, image_paths, duration=0.5):
             display(Image(data=f.read(), format='png'))
     """
     import imageio
-    kargs = {'duration': duration}  # gif画像のフレームレイト
+
+    kargs = {"duration": duration}  # gif画像のフレームレイト
     gif_images = []
     for filename in image_paths:
         gif_images.append(imageio.imread(filename))
     imageio.mimsave(output_gif_path, gif_images, **kargs)
 
 
-def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=42,
-                      is_umap=True, point_size=None, is_axis_off=True, is_show=True,
-                      n_neighbors=15, min_dist=0.1, perplexity=30.0):
+def umap_tsne_scatter(
+    x_array,
+    y=None,
+    out_png="umap_scatter.png",
+    random_state=42,
+    is_umap=True,
+    point_size=None,
+    is_axis_off=True,
+    is_show=True,
+    n_neighbors=15,
+    min_dist=0.1,
+    perplexity=30.0,
+):
     """
     umap/tsneで次元削減した画像出力
     Args:
@@ -243,9 +275,13 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
     import matplotlib.cm as cm
 
     if is_umap == True:
-        embedding = umap.UMAP(random_state=random_state, n_neighbors=n_neighbors, min_dist=min_dist).fit_transform(x_array)
+        embedding = umap.UMAP(
+            random_state=random_state, n_neighbors=n_neighbors, min_dist=min_dist
+        ).fit_transform(x_array)
     else:
-        tsne_model = TSNE(n_components=2, random_state=random_state, perplexity=perplexity)
+        tsne_model = TSNE(
+            n_components=2, random_state=random_state, perplexity=perplexity
+        )
         embedding = tsne_model.fit_transform(x_array)
 
     if y is None:
@@ -255,7 +291,7 @@ def umap_tsne_scatter(x_array, y=None, out_png='umap_scatter.png', random_state=
         plt.scatter(embedding[:, 0], embedding[:, 1], c=y, s=point_size, cmap=cm.tab10)
         plt.colorbar()
     if is_axis_off == True:
-        plt.axis('off')  # x,y軸表示させない
+        plt.axis("off")  # x,y軸表示させない
     if out_png is not None:
         plt.savefig(out_png)
     if is_show == True:
@@ -275,9 +311,20 @@ def show_tile_img(images_4tensor):
     collage_n_x = int(np.sqrt(images_4tensor.shape[0]))
     for i in range(images_4tensor.shape[0] // collage_n_x):
         if tile is None:
-            tile = np.hstack(images_4tensor[i*+collage_n_x: i*+collage_n_x + collage_n_x])  # np.hstackは水平方向積上げ
+            tile = np.hstack(
+                images_4tensor[i * +collage_n_x : i * +collage_n_x + collage_n_x]
+            )  # np.hstackは水平方向積上げ
         else:
-            tile = np.vstack((tile, np.hstack(images_4tensor[i*+collage_n_x: i*+collage_n_x + collage_n_x])))  # np.vstackは垂直方向積上げ
+            tile = np.vstack(
+                (
+                    tile,
+                    np.hstack(
+                        images_4tensor[
+                            i * +collage_n_x : i * +collage_n_x + collage_n_x
+                        ]
+                    ),
+                )
+            )  # np.vstackは垂直方向積上げ
     show_np_img(tile)
 
 
@@ -288,6 +335,7 @@ def resize_ndarray(x, input_shape=(380, 380, 3)):
     http://pynote.hatenablog.com/entry/pillow-resize
     """
     import tensorflow.keras
+
     # ndarray から PIL 形式に変換する
     img = tensorflow.keras.preprocessing.image.array_to_img(x)
     # 指定した大きさにリサイズする
@@ -313,8 +361,10 @@ def img2jpg(input_dir, output_dir):
     for file in tqdm(files):
         if file[-4:].lower() in [".png", ".tif", ".jpg", ".bmp"]:
             input_im = Image.open(os.path.join(input_dir, file))
-            rgb_im = input_im.convert('RGB')
-            rgb_im.save(os.path.join(output_dir, pathlib.Path(file).stem + ".jpg"), quality=100)
+            rgb_im = input_im.convert("RGB")
+            rgb_im.save(
+                os.path.join(output_dir, pathlib.Path(file).stem + ".jpg"), quality=100
+            )
             print("transaction finished: " + file)
 
 
@@ -335,8 +385,10 @@ def movie2gif(input_dir, output_dir):
     for file in tqdm(files):
         if file[-4:].lower() in [".mp4", ".avi"]:
             reader = imageio.get_reader(os.path.join(input_dir, file))
-            fps = reader.get_meta_data()['fps']
-            with imageio.get_writer(os.path.join(output_dir, pathlib.Path(file).stem + ".gif"), fps=fps) as writer:
+            fps = reader.get_meta_data()["fps"]
+            with imageio.get_writer(
+                os.path.join(output_dir, pathlib.Path(file).stem + ".gif"), fps=fps
+            ) as writer:
                 for i, im in enumerate(reader):
                     sys.stdout.write("\rframe {0}".format(i))
                     sys.stdout.flush()
@@ -352,17 +404,20 @@ def MOV2mp4(input_video, output_dir):
         MOV2mp4('IMG_9303.MOV', 'output')  # output/IMG_9303.mp4 ができる
     """
     video = cv2.VideoCapture(input_video)
-    fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-    writer = cv2.VideoWriter((os.path.join(output_dir, pathlib.Path(input_video).stem + '.mp4')),
-                             fourcc,
-                             20.0,  # フレームレート
-                             (int(video.get(4)), int(video.get(3)))  # 画像サイズ
-                             )
+    fourcc = cv2.VideoWriter_fourcc(*"DIVX")
+    writer = cv2.VideoWriter(
+        (os.path.join(output_dir, pathlib.Path(input_video).stem + ".mp4")),
+        fourcc,
+        20.0,  # フレームレート
+        (int(video.get(4)), int(video.get(3))),  # 画像サイズ
+    )
 
     frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     for i in range(frame_count):
         ret, frame = video.read()
-        frame = np.rot90(frame, 3)  # 縦動画の縦横が逆になってしまったので、２７０度回転  https://oliversi.com/2019/01/16/python-opencv-movie2/
+        frame = np.rot90(
+            frame, 3
+        )  # 縦動画の縦横が逆になってしまったので、２７０度回転  https://oliversi.com/2019/01/16/python-opencv-movie2/
         # print(frame.shape)
         writer.write(frame)  # 画像を1フレーム分として書き込み
 
@@ -371,7 +426,7 @@ def MOV2mp4(input_video, output_dir):
     cv2.destroyAllWindows()
 
 
-def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
+def pd_targethist(df, target: str, output_dir=None, kind="hist", **kwards):
     """
     Pandasのpivot_table使ってカテゴリデータ（ラベル,目的変数やhueと呼ぶほうがしっくりくるかもしれません）
     ごとに色分けしたヒストグラムを数値列(説明変数)ごとに作成する
@@ -398,7 +453,7 @@ def pd_targethist(df, target: str, output_dir=None, kind='hist', **kwards):
             ax.get_figure().savefig(os.path.join(output_dir, column + ".png"))
 
 
-def plot_dendrogram(df, method='ward', figsize=(10, 6), output_dir=None):
+def plot_dendrogram(df, method="ward", figsize=(10, 6), output_dir=None):
     """
     階層型クラスタリングで樹形図（デンドログラム）と距離行列のヒートマップをplotする
     Usage:
@@ -413,39 +468,49 @@ def plot_dendrogram(df, method='ward', figsize=(10, 6), output_dir=None):
 
     # 数値列だけにしないと距離測れない
     _df = df.T
-    cols = [col for col in _df.columns if _df[col].dtype.name in ['object', 'category', 'bool']]
-    assert len(cols) == 0, '数値以外型の列があるので階層型クラスタリングできません'
+    cols = [
+        col
+        for col in _df.columns
+        if _df[col].dtype.name in ["object", "category", "bool"]
+    ]
+    assert len(cols) == 0, "数値以外型の列があるので階層型クラスタリングできません"
 
     # 階層型クラスタリング実行
     # クラスタリング手法である methods = ["single", "complete", "average", "weighted", "centroid", "median", "ward"]　ある
-    z = linkage(df, method=method, metric='euclidean')
+    z = linkage(df, method=method, metric="euclidean")
 
     # デンドログラムを描く
     fig, ax = plt.subplots(figsize=figsize)
     dendrogram(z, labels=df.index, ax=ax)
     plt.title(method)
     if output_dir is not None:
-        plt.savefig(os.path.join(output_dir, method + '_dendro.png'), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(output_dir, method + "_dendro.png"), bbox_inches="tight"
+        )
     plt.show()
 
     # 距離行列計算
     s = pdist(df)
-    df_dist = pd.DataFrame(squareform(s), index=df.index, columns=df.index)  # 距離行列を平方行列の形にする
+    df_dist = pd.DataFrame(
+        squareform(s), index=df.index, columns=df.index
+    )  # 距離行列を平方行列の形にする
     fig, ax = plt.subplots(figsize=figsize)
-    sns.heatmap(df_dist, cmap='coolwarm', annot=True, ax=ax)
-    plt.title('distance matrix')
+    sns.heatmap(df_dist, cmap="coolwarm", annot=True, ax=ax)
+    plt.title("distance matrix")
     if output_dir is not None:
-        plt.savefig(os.path.join(output_dir, method + '_distmatrix.png'), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(output_dir, method + "_distmatrix.png"), bbox_inches="tight"
+        )
     plt.show()
 
     # クラスタリング手法の評価指標計算 値大きい方が高精度らしい https://www.haya-programming.com/entry/2019/02/11/035943
     c, d = cophenet(z, s)
-    print('method:{0} {1:.3f}'.format(method, c))
+    print("method:{0} {1:.3f}".format(method, c))
 
     return df_dist
 
 
-def normalize_df_cols(df: pd.DataFrame, cols: list, normal='standard') -> pd.DataFrame:
+def normalize_df_cols(df: pd.DataFrame, cols: list, normal="standard") -> pd.DataFrame:
     """
     データフレームの指定列について、正規化
     Usage:
@@ -456,13 +521,15 @@ def normalize_df_cols(df: pd.DataFrame, cols: list, normal='standard') -> pd.Dat
     from sklearn.preprocessing import MinMaxScaler  # 最小値0、最大値1にする正規化
 
     # 正規化を行うオブジェクトを生成
-    if normal == 'standard':
+    if normal == "standard":
         scaler = StandardScaler()
-    elif normal == 'minmax':
+    elif normal == "minmax":
         scaler = MinMaxScaler()
 
     # 数値列の列名だけにする
-    cols = [col for col in cols if df[col].dtype.name not in ['object', 'category', 'bool']]
+    cols = [
+        col for col in cols if df[col].dtype.name not in ["object", "category", "bool"]
+    ]
 
     for col in cols:
         # 数値型の列なら実行
@@ -484,13 +551,17 @@ def delete_outlier_3sigma_df_cols(df: pd.DataFrame, cols: list) -> pd.DataFrame:
         df = delete_outlier_3sigma_df_cols(df, ['value', 'value2'])
     """
     for col in cols:
-        if df[col].dtype.name not in ['object', 'category', 'bool']:
+        if df[col].dtype.name not in ["object", "category", "bool"]:
             # 数値型の列なら実行
-            df = df[(abs(df[col] - np.mean(df[col])) / np.std(df[col]) <= 3)].reset_index(drop=True)
+            df = df[
+                (abs(df[col] - np.mean(df[col])) / np.std(df[col]) <= 3)
+            ].reset_index(drop=True)
     return df
 
 
-def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> pd.DataFrame:
+def pca_df_cols(
+    df: pd.DataFrame, cols: list, n_components=2, is_plot=True
+) -> pd.DataFrame:
     """
     データフレームの指定列について、PCAで次元削減
     Usage:
@@ -504,14 +575,16 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
     pca = PCA(n_components=n_components)  # n_componentsに、主成分分析で変換後の次元数を設定
 
     # 数値列の列名だけにする
-    cols = [col for col in cols if df[col].dtype.name not in ['object', 'category', 'bool']]
+    cols = [
+        col for col in cols if df[col].dtype.name not in ["object", "category", "bool"]
+    ]
 
     # 主成分分析を実行. pcaに主成分分析の変換パラメータが保存され、返り値に主成分分析後の値が返される
     _ = pca.fit_transform(df[cols])
 
     # 累積寄与率と寄与率の確認
-    print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
-    print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
+    print("累積寄与率: {0}".format(sum(pca.explained_variance_ratio_)))
+    print("各次元の寄与率: {0}".format(pca.explained_variance_ratio_))
 
     # predict関数を利用し、同じ次元圧縮処理を実行
     df_pca = pd.DataFrame(pca.transform(df[cols]), columns=range(n_components))
@@ -519,13 +592,15 @@ def pca_df_cols(df: pd.DataFrame, cols: list, n_components=2, is_plot=True) -> p
     # pcaの散布図可視化
     if is_plot and n_components == 2:
         sns.set(style="darkgrid")
-        sns.jointplot(x=df_pca.columns[0], y=df_pca.columns[1], data=df_pca, kind='reg')
+        sns.jointplot(x=df_pca.columns[0], y=df_pca.columns[1], data=df_pca, kind="reg")
         plt.show()
 
     return df_pca
 
 
-def add_label_kmeans_pca(df: pd.DataFrame, n_clusters=4, normal='standard', is_pca=True) -> pd.DataFrame:
+def add_label_kmeans_pca(
+    df: pd.DataFrame, n_clusters=4, normal="standard", is_pca=True
+) -> pd.DataFrame:
     """
     データフレーム全体をkmeansでクラスタリングしてラベル列追加 + データフレームをPCAで次元削減して追加したラベルplot
     Usage:
@@ -538,19 +613,23 @@ def add_label_kmeans_pca(df: pd.DataFrame, n_clusters=4, normal='standard', is_p
     from sklearn.decomposition import PCA
 
     # 欠損レコード削除
-    df = df.replace('None', np.nan).dropna()
+    df = df.replace("None", np.nan).dropna()
 
     # 数値列の列名だけにする
-    cols = [col for col in df.columns if df[col].dtype.name not in ['object', 'category', 'bool']]
+    cols = [
+        col
+        for col in df.columns
+        if df[col].dtype.name not in ["object", "category", "bool"]
+    ]
 
     for col in cols:
         # 数値型の列なら実行
         df[col] = df[col].astype(float)  # 少数点以下を扱えるようにするためfloat型に変換
 
     # 正規化
-    if normal == 'standard':
+    if normal == "standard":
         scaler = StandardScaler().fit_transform(df[cols])
-    elif normal == 'minmax':
+    elif normal == "minmax":
         scaler = MinMaxScaler().fit_transform(df[cols])
     else:
         scaler = df[cols].values
@@ -570,14 +649,14 @@ def add_label_kmeans_pca(df: pd.DataFrame, n_clusters=4, normal='standard', is_p
         pca_df["kmeans"] = df["kmeans"]
 
         for i in df["kmeans"].unique():
-            tmp = pca_df.loc[pca_df["kmeans"]==i]
+            tmp = pca_df.loc[pca_df["kmeans"] == i]
             plt.scatter(tmp[0], tmp[1])
         plt.show()
 
     return df
 
 
-def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFrame:
+def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how="delete") -> pd.DataFrame:
     """
     データフレームの指定列について、欠損値置換
     - how='delete'なら欠損値持つレコード削除
@@ -600,29 +679,35 @@ def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFr
     """
     from sklearn.neighbors import KNeighborsClassifier
 
-    df = df.replace('None', np.nan)  # dropnaはNone置換できないので置き換える
+    df = df.replace("None", np.nan)  # dropnaはNone置換できないので置き換える
 
     for col in cols:
-        if how == 'delete':
+        if how == "delete":
             df = df.dropna(subset=[col])
 
-        elif how == 'mean':
-            if df[col].dtype.name not in ['object', 'category', 'bool']:
+        elif how == "mean":
+            if df[col].dtype.name not in ["object", "category", "bool"]:
                 # 数値型の列でないので平均値とれない
-                df[col] = df[col].fillna(df[col].astype('float64').mean())
+                df[col] = df[col].fillna(df[col].astype("float64").mean())
             else:
-                print(f'{col}列は数値型の列でないので平均値とれません')
+                print(f"{col}列は数値型の列でないので平均値とれません")
 
-        elif how == 'knn':
-            if df[col].dtype.name in ['object', 'category', 'bool'] and df[col].isnull().any():
+        elif how == "knn":
+            if (
+                df[col].dtype.name in ["object", "category", "bool"]
+                and df[col].isnull().any()
+            ):
                 # 数値型の列なら実行
                 train = df.dropna(subset=[col])  # 欠損していないデータの抽出
                 test = df.loc[df.index.difference(train.index), :]  # 欠損しているデータの抽出
-                integer_cols = [col for col in train.columns \
-                                if train[col].dtype.name not in ['object', 'category', 'bool'] \
-                                and train[col].isnull().any() == False]  # 数値列かつ欠損が無い列名取得。説明変数として使う列
+                integer_cols = [
+                    col
+                    for col in train.columns
+                    if train[col].dtype.name not in ["object", "category", "bool"]
+                    and train[col].isnull().any() == False
+                ]  # 数値列かつ欠損が無い列名取得。説明変数として使う列
 
-                assert len(integer_cols) > 0, '説明変数の数値型の列がないのでknnできません'
+                assert len(integer_cols) > 0, "説明変数の数値型の列がないのでknnできません"
                 # print(integer_cols)
 
                 # knnモデル生成。近傍のサンプル数はクラス数+1にしておく（適当）
@@ -634,19 +719,21 @@ def drop_fillna_df_cols(df: pd.DataFrame, cols: list, how='delete') -> pd.DataFr
 
                 df = pd.concat([train, test]).sort_index()
             else:
-                print(f'{col}列は文字型orカテゴリ型の列でない もしくは 欠損値が無いのでknnできません')
+                print(f"{col}列は文字型orカテゴリ型の列でない もしくは 欠損値が無いのでknnできません")
 
         else:
-            if df[col].dtype.name not in ['category', 'bool']:
+            if df[col].dtype.name not in ["category", "bool"]:
                 # 文字列か数値型の列なら実行
                 df[col] = df[col].fillna(how)
             else:
-                print(f'{col}列はブール型orカテゴリ型の列なので指定文字で置換できません')
+                print(f"{col}列はブール型orカテゴリ型の列なので指定文字で置換できません")
 
     return df
 
 
-def summarize_df_category_col(df: pd.DataFrame, col: str, new_category, summarize_categories: list) -> pd.DataFrame:
+def summarize_df_category_col(
+    df: pd.DataFrame, col: str, new_category, summarize_categories: list
+) -> pd.DataFrame:
     """
     データフレームの指定カテゴリ列について、カテゴリ値を集約する（例.「60,70,80」の3カテゴリを「60以上」だけにする）
     Usage:
@@ -656,7 +743,7 @@ def summarize_df_category_col(df: pd.DataFrame, col: str, new_category, summariz
         df['age_rank'] = np.floor(df['age']/10)*10
         df = summarize_df_category_col(df, 'age_rank', '60以上', [60.0, 70.0, 80.0])
     """
-    df[col] = df[col].astype('category')  # カテゴリ型に変換
+    df[col] = df[col].astype("category")  # カテゴリ型に変換
 
     # マスタデータにnew_categoryを追加
     df[col] = df[col].cat.add_categories(new_category)
@@ -683,14 +770,16 @@ def plot_feature_importance(model, X):
         plot_feature_importance(forest, X_train)
     """
     n_features = X.shape[1]
-    plt.barh(range(n_features), model.feature_importances_, align='center')
+    plt.barh(range(n_features), model.feature_importances_, align="center")
     plt.yticks(np.arange(n_features), X.columns)
-    plt.xlabel('Feature importance')
-    plt.ylabel('Feature')
+    plt.xlabel("Feature importance")
+    plt.ylabel("Feature")
     plt.show()
 
 
-def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, output_path='.'):
+def save_sklearn_model_info(
+    model, training_info, preprocess_pipeline=None, output_path="."
+):
     """
     モデルの前処理や使うファイル、ハイパーパラメータなどの情報を保存例
     ※「このモデルはどうやって学習されたんや！？」
@@ -709,7 +798,11 @@ def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, outp
     now = datetime.now(JST).strftime("%Y%m%d_%H%M%S")  # 現在時間を取得
 
     # 出力先がディレクトリならファイル名に現在時刻付ける
-    filepath = os.path.join(output_path, "sklearn_model_info_" + now + ".joblib") if os.path.isdir(output_path) else output_path
+    filepath = (
+        os.path.join(output_path, "sklearn_model_info_" + now + ".joblib")
+        if os.path.isdir(output_path)
+        else output_path
+    )
 
     # 学習データ、モデルの種類、ハイパーパラメータの情報に現在時刻も詰める
     training_info["save_date"] = now
@@ -717,7 +810,8 @@ def save_sklearn_model_info(model, training_info, preprocess_pipeline=None, outp
     save_data = {
         "preprocess_pipeline": preprocess_pipeline,
         "trained_model": model,
-        "training_info": training_info}
+        "training_info": training_info,
+    }
 
     # 保存
     joblib.dump(save_data, filepath)
@@ -737,13 +831,94 @@ def set_tf_random_seed(seed=0):
     import tensorflow as tf
 
     ## ソースコード上でGPUの計算順序の固定を記述
-    #from tfdeterminism import patch
-    #patch()
+    # from tfdeterminism import patch
+    # patch()
 
     # 乱数のseed値の固定
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)  # v1.0系だとtf.set_random_seed(seed)
+
+
+def nelder_mead_th(true_y, pred_y):
+    """
+    ネルダーミードでf1スコアから2値分類のbestな閾値見つける
+    Usage:
+        import numpy as np
+        import pandas as pd
+        from sklearn.metrics import f1_score
+        from scipy.optimize import minimize
+
+        # サンプルデータ生成の準備
+        rand = np.random.RandomState(seed=71)
+        train_y_prob = np.linspace(0, 1.0, 10000)
+
+        # 真の値と予測値が以下のtrain_y, train_pred_probであったとする
+        train_y = pd.Series(rand.uniform(0.0, 1.0, train_y_prob.size) < train_y_prob)
+        train_pred_prob = np.clip(
+            train_y_prob * np.exp(rand.standard_normal(train_y_prob.shape) * 0.3), 0.0, 1.0
+        )
+        # print(train_y_prob, train_pred_prob)
+
+        # 閾値を0.5とすると、F1は0.722
+        init_threshold = 0.5
+        init_score = f1_score(train_y, train_pred_prob >= init_threshold)
+        print(init_threshold, init_score)
+
+        best_threshold = nelder_mead_th(train_y, train_pred_prob)
+        best_score = f1_score(train_y, train_pred_prob >= best_threshold)
+        print(best_threshold, best_score))
+    """
+
+    def f1_opt(x):
+        return -f1_score(true_y, pred_y >= x)
+
+    result = minimize(f1_opt, x0=np.array([0.5]), method="Nelder-Mead")
+    best_threshold = result["x"].item()
+    return best_threshold
+
+
+def nelder_mead_func(trues, preds):
+    """
+    ネルダーミードで任意の関数のbestな重み見つける
+    - func_opt関数の中身変更すること
+    - 複数モデルの結果ブレンドするのに使える
+    Usage:
+        import numpy as np
+        import pandas as pd
+        from sklearn.metrics import f1_score
+        from scipy.optimize import minimize
+        from sklearn.metrics import mean_squared_error
+
+        train_y_prob = np.linspace(0, 1.0, 10000)
+        rand = np.random.RandomState(seed=71)
+        train_y = pd.Series(rand.uniform(0.0, 1.0, train_y_prob.size) < train_y_prob)
+        train_pred_prob = np.clip(
+            train_y_prob * np.exp(rand.standard_normal(train_y_prob.shape) * 0.3), 0.0, 1.0
+        )
+
+        best_thresholds = nelder_mead_func(
+            train_y, [train_pred_prob, train_pred_prob, train_pred_prob]
+        )
+
+        best_score = (
+            (train_pred_prob * best_thresholds[0])
+            + (train_pred_prob * best_thresholds[1])
+            + (train_pred_prob * best_thresholds[2])
+        )
+        print(best_thresholds, best_score)
+    """
+
+    def func_opt(x):
+        # y = a*x1 + b*x2 * c*x3 の式のa,b,cのbest重み最適化
+        blend_preds = (preds[0] * x[0]) + (preds[1] * x[1]) + (preds[2] * x[2])
+        # 正解との平均2乗誤差返す
+        return mean_squared_error(trues, blend_preds)
+
+    result = minimize(func_opt, x0=np.array([1.0, 1.0, 1.0]), method="Nelder-Mead")
+    # print(result)
+    best_thresholds = result["x"]
+    return best_thresholds
 
 
 # クラスタリング結果の評価指標であるPseudo Fが高いクラスタ数でkmeans計算
@@ -772,9 +947,13 @@ def pseudof_best_kmeans_df(df, max_n_clusters=10, random_state=11, is_plot=True)
     import matplotlib.pyplot as plt
 
     # 欠損レコード削除
-    df = df.replace('None', np.nan).dropna()
+    df = df.replace("None", np.nan).dropna()
     # 数値列の列名だけにする
-    cols = [col for col in df.columns if df[col].dtype.name not in ['object', 'category', 'bool']]
+    cols = [
+        col
+        for col in df.columns
+        if df[col].dtype.name not in ["object", "category", "bool"]
+    ]
     df = df[cols]
     for col in cols:
         # 数値型の列なら実行
@@ -784,23 +963,23 @@ def pseudof_best_kmeans_df(df, max_n_clusters=10, random_state=11, is_plot=True)
     df_score = pd.DataFrame(columns=["k", "pseudoF"])
 
     # 準備：1つのクラスタに分ける
-    kmeans_all = KMeans(n_clusters=1,
-                        random_state=random_state).fit(df)
+    kmeans_all = KMeans(n_clusters=1, random_state=random_state).fit(df)
 
     # クラスタ数kを2から10までループ
     for k in range(2, max_n_clusters + 1):
         # K-means法によってk個のクラスタに分割
-        kmeans = KMeans(n_clusters=k,
-                        random_state=random_state).fit(df)
+        kmeans = KMeans(n_clusters=k, random_state=random_state).fit(df)
 
         # pseudo-Fの分子の計算
         nu = (kmeans_all.inertia_ - kmeans.inertia_) / (kmeans.n_clusters - 1)
         # pseudo-Fの分母の計算
-        de = kmeans.inertia_ / (df.iloc[:,1].count() - kmeans.n_clusters)
+        de = kmeans.inertia_ / (df.iloc[:, 1].count() - kmeans.n_clusters)
         # pseudo-Fの計算
         pseudoF = nu / de
         # 結果の格納
-        df_score = df_score.append(pd.DataFrame([[float(k), pseudoF]], columns=["k", "pseudoF"]))
+        df_score = df_score.append(
+            pd.DataFrame([[float(k), pseudoF]], columns=["k", "pseudoF"])
+        )
     df_score = df_score.reset_index(drop=True)
 
     if is_plot:
@@ -810,7 +989,7 @@ def pseudof_best_kmeans_df(df, max_n_clusters=10, random_state=11, is_plot=True)
         plt.show()
 
     # best kmeans
-    best_k = df_score.iloc[df_score['pseudoF'].argmax()]['k']
+    best_k = df_score.iloc[df_score["pseudoF"].argmax()]["k"]
     print("INFO: Pseudo F best KMeans n_clusters {}".format(int(best_k)))
     clusters = KMeans(n_clusters=int(best_k), random_state=random_state).fit(df)
     df["group"] = clusters.labels_  # kmeansのラベル列追加
@@ -819,15 +998,17 @@ def pseudof_best_kmeans_df(df, max_n_clusters=10, random_state=11, is_plot=True)
 
 
 # sklearnの回帰モデルをGridSearch
-def gridsearch_reg_df(df_x, df_y,
-                      sklearn_reg,
-                      tuned_parameters: list,
-                      test_size=0.3,
-                      cv=5,
-                      scoring='neg_mean_squared_error',
-                      random_state=17,
-                      is_plot=True
-                      ):
+def gridsearch_reg_df(
+    df_x,
+    df_y,
+    sklearn_reg,
+    tuned_parameters: list,
+    test_size=0.3,
+    cv=5,
+    scoring="neg_mean_squared_error",
+    random_state=17,
+    is_plot=True,
+):
     """
     sklearnの回帰モデルをGridSearch
     Usage:
@@ -866,16 +1047,17 @@ def gridsearch_reg_df(df_x, df_y,
     from sklearn.metrics import mean_squared_error, mean_absolute_error
 
     # 教師データとテストデータの分割
-    train_x, test_x, train_y, test_y = train_test_split(df_x, df_y,
-                                                        test_size=test_size,
-                                                        random_state=random_state)
+    train_x, test_x, train_y, test_y = train_test_split(
+        df_x, df_y, test_size=test_size, random_state=random_state
+    )
     # パラメータのセット
     # CVは目安ではありますが、分割数の上限としては、擬似的な テストデータ の数が20行(レコード)を下回らないように調整するとよい
-    gs_reg = model_selection.GridSearchCV(sklearn_reg,  # model指定
-                                          param_grid=tuned_parameters,  # ハイパーパラメータ
-                                          cv=cv,  # 交差検証を指定
-                                          scoring=scoring  # GridSearchCVのscoringでMSE(平均二乗誤差)指定する場合は'neg_mean_squared_error'
-                                         )
+    gs_reg = model_selection.GridSearchCV(
+        sklearn_reg,  # model指定
+        param_grid=tuned_parameters,  # ハイパーパラメータ
+        cv=cv,  # 交差検証を指定
+        scoring=scoring,  # GridSearchCVのscoringでMSE(平均二乗誤差)指定する場合は'neg_mean_squared_error'
+    )
     # 学習
     gs_reg.fit(train_x, train_y)
 
@@ -895,7 +1077,7 @@ def gridsearch_reg_df(df_x, df_y,
     # テストデータ に対する予測値を算出
     # 予測値をpred列としてtest_yに追加する
     pred = gs_reg.best_estimator_.predict(test_x)
-    test_y['pred'] = pred
+    test_y["pred"] = pred
     print(test_y.head())
 
     # MAE(平均絶対誤差): モデルからデータの平均距離
@@ -911,24 +1093,26 @@ def gridsearch_reg_df(df_x, df_y,
     if is_plot:
         # 予測値の可視化
         # 正解値と予測値を描画する(予測がぴったりならば線上に乗る)
-        test_y.plot.scatter(x=test_y.columns[0], y="pred", figsize=(10,8))
-        plt.plot(np.arange(8), np.arange(8))             # y=xの線
-        plt.xlim(1, 7)                                   # x軸の範囲
-        plt.ylim(1, 7)                                   # y軸の範囲
+        test_y.plot.scatter(x=test_y.columns[0], y="pred", figsize=(10, 8))
+        plt.plot(np.arange(8), np.arange(8))  # y=xの線
+        plt.xlim(1, 7)  # x軸の範囲
+        plt.ylim(1, 7)  # y軸の範囲
         plt.show()
 
     return gs_reg
 
 
 # sklearnの分類モデルをGridSearch
-def gridsearch_class_df(df_x, df_y,
-                        sklearn_class,
-                        tuned_parameters: list,
-                        test_size=0.3,
-                        cv=5,
-                        random_state=71,
-                        is_plot=True
-                        ):
+def gridsearch_class_df(
+    df_x,
+    df_y,
+    sklearn_class,
+    tuned_parameters: list,
+    test_size=0.3,
+    cv=5,
+    random_state=71,
+    is_plot=True,
+):
     """
     sklearnの分類モデルをGridSearch
     Usage:
@@ -993,15 +1177,16 @@ def gridsearch_class_df(df_x, df_y,
     import pydotplus
 
     # 教師データとテストデータの分割
-    train_x, test_x, train_y, test_y = train_test_split(df_x, df_y,
-                                                        test_size=test_size,
-                                                        random_state=random_state)
+    train_x, test_x, train_y, test_y = train_test_split(
+        df_x, df_y, test_size=test_size, random_state=random_state
+    )
     # パラメータのセット
     # CVは目安ではありますが、分割数の上限としては、擬似的な テストデータ の数が20行(レコード)を下回らないように調整するとよい
-    gs_clf = model_selection.GridSearchCV(sklearn_class,  # model指定
-                                          param_grid=tuned_parameters,  # ハイパーパラメータ
-                                          cv=cv,  # 交差検証を指定
-                                          )
+    gs_clf = model_selection.GridSearchCV(
+        sklearn_class,  # model指定
+        param_grid=tuned_parameters,  # ハイパーパラメータ
+        cv=cv,  # 交差検証を指定
+    )
     # 学習
     gs_clf.fit(train_x, train_y)
 
@@ -1013,9 +1198,11 @@ def gridsearch_class_df(df_x, df_y,
     # テストデータ に対する予測値を算出
     # 予測値をpred列, 各クラスの予測確率をpred_proba_列としてtest_yに追加する
     pred = gs_clf.best_estimator_.predict(test_x)
-    test_y['pred'] = pred
+    test_y["pred"] = pred
     for i, class_name in enumerate(gs_clf.classes_):
-        test_y[f'pred_proba_{class_name}'] = gs_clf.best_estimator_.predict_proba(test_x)[:, i]
+        test_y[f"pred_proba_{class_name}"] = gs_clf.best_estimator_.predict_proba(
+            test_x
+        )[:, i]
     print(test_y.head())
 
     # 混同行列
@@ -1030,10 +1217,10 @@ def gridsearch_class_df(df_x, df_y,
     # AUC
     print("\nAUC")
     for i, class_name in enumerate(gs_clf.classes_):
-        precision, recall, thresholds = precision_recall_curve(test_y.iloc[:, 0],
-                                                               test_y[f"pred_proba_{class_name}"],
-                                                               pos_label=class_name)
-        print(class_name + ':', auc(recall, precision))
+        precision, recall, thresholds = precision_recall_curve(
+            test_y.iloc[:, 0], test_y[f"pred_proba_{class_name}"], pos_label=class_name
+        )
+        print(class_name + ":", auc(recall, precision))
 
     # best param
     print(f"\n{sklearn_class.__class__.__name__} best param")
@@ -1047,18 +1234,19 @@ def gridsearch_class_df(df_x, df_y,
 
     if sklearn_class.__class__.__name__ == "DecisionTreeClassifier":
         # 決定木についてGraphviz描画用ファイルの出力
-        tree.export_graphviz(gs_clf.best_estimator_,  # model
-                             out_file="dtree.dot",  # ファイル名
-                             feature_names=train_x.columns,  # 特徴量名
-                             class_names=train_y.iloc[:,0].unique(),  # クラス名
-                             filled=True  # 色を塗る
-                             )
+        tree.export_graphviz(
+            gs_clf.best_estimator_,  # model
+            out_file="dtree.dot",  # ファイル名
+            feature_names=train_x.columns,  # 特徴量名
+            class_names=train_y.iloc[:, 0].unique(),  # クラス名
+            filled=True,  # 色を塗る
+        )
         # dotファイルをpngに変換
-        graph = pydotplus.graphviz.graph_from_dot_file('dtree.dot')
-        graph.write_png('dtree.png')
+        graph = pydotplus.graphviz.graph_from_dot_file("dtree.dot")
+        graph.write_png("dtree.png")
         ## jupyterで決定木の画像表示
-        #from IPython.display import Image, display_png
-        #display_png(Image(graph.create_png()))
+        # from IPython.display import Image, display_png
+        # display_png(Image(graph.create_png()))
 
     return gs_clf
 
@@ -1072,55 +1260,105 @@ def test_func():
     $ nosetests -v -s util.py  # 再帰的にディレクトリ探索して「Test」や「test」で始まるクラスとメソッドを実行。-s付けるとprint()の内容出してくれる
     """
     import matplotlib
-    matplotlib.use('Agg')  # グラフ表示させない
+
+    matplotlib.use("Agg")  # グラフ表示させない
     import seaborn as sns
 
     # assertでテストケースチェックしていく. Trueなら何もしない
 
     # plot_dendrogram()
-    df = sns.load_dataset('iris')
-    df = df.drop('species', axis=1)
-    df_dist = plot_dendrogram(df.T, method='ward', output_dir=r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp')
+    df = sns.load_dataset("iris")
+    df = df.drop("species", axis=1)
+    df_dist = plot_dendrogram(
+        df.T,
+        method="ward",
+        output_dir=r"D:\work\02_keras_py\experiment\01_code_test\output_test\tmp",
+    )
     assert df_dist.shape[0] == 4
 
     # MOV2mp4()
-    MOV2mp4(r'D:\iPhone_pictures\2019-04\IMG_9303.MOV', r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp')
-    assert os.path.exists(r'D:\work\02_keras_py\experiment\01_code_test\output_test\tmp\IMG_9303.mp4') == True
+    MOV2mp4(
+        r"D:\iPhone_pictures\2019-04\IMG_9303.MOV",
+        r"D:\work\02_keras_py\experiment\01_code_test\output_test\tmp",
+    )
+    assert (
+        os.path.exists(
+            r"D:\work\02_keras_py\experiment\01_code_test\output_test\tmp\IMG_9303.mp4"
+        )
+        == True
+    )
 
     # normalize_df_cols
-    df_titanic = sns.load_dataset('titanic')
-    assert int(normalize_df_cols(df_titanic, df_titanic.columns)['age'].mean()) == 0
-    assert int(normalize_df_cols(df_titanic, df_titanic.columns, normal='minmax')['age'].max()) == 1
+    df_titanic = sns.load_dataset("titanic")
+    assert int(normalize_df_cols(df_titanic, df_titanic.columns)["age"].mean()) == 0
+    assert (
+        int(
+            normalize_df_cols(df_titanic, df_titanic.columns, normal="minmax")[
+                "age"
+            ].max()
+        )
+        == 1
+    )
 
     # delete_outlier_3sigma_df_cols()
-    df_iris = sns.load_dataset('iris')
-    assert df_iris.shape[0] > delete_outlier_3sigma_df_cols(df_iris, df_iris.columns).shape[0]
+    df_iris = sns.load_dataset("iris")
+    assert (
+        df_iris.shape[0]
+        > delete_outlier_3sigma_df_cols(df_iris, df_iris.columns).shape[0]
+    )
 
     # pca_df_cols()
-    df_iris = sns.load_dataset('iris')
+    df_iris = sns.load_dataset("iris")
     assert pca_df_cols(df_iris, df_iris.columns, is_plot=False).shape[1] == 2
 
     # drop_fillna_df_col
-    df_titanic = sns.load_dataset('titanic')
-    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how='delete')['age'].isnull().all() == False
-    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how='mean')['age'].isnull().all() == False
-    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how=0)['age'].dtype.name == 'float64'
-    assert drop_fillna_df_cols(df_titanic, df_titanic.columns, how='knn')['deck'].isnull().all() == False
+    df_titanic = sns.load_dataset("titanic")
+    assert (
+        drop_fillna_df_cols(df_titanic, df_titanic.columns, how="delete")["age"]
+        .isnull()
+        .all()
+        == False
+    )
+    assert (
+        drop_fillna_df_cols(df_titanic, df_titanic.columns, how="mean")["age"]
+        .isnull()
+        .all()
+        == False
+    )
+    assert (
+        drop_fillna_df_cols(df_titanic, df_titanic.columns, how=0)["age"].dtype.name
+        == "float64"
+    )
+    assert (
+        drop_fillna_df_cols(df_titanic, df_titanic.columns, how="knn")["deck"]
+        .isnull()
+        .all()
+        == False
+    )
 
     # summarize_df_category_col()
-    df_titanic = sns.load_dataset('titanic')
-    df_titanic = df_titanic.replace('None', np.nan).dropna(subset=['age'])
-    df_titanic['age_rank'] = np.floor(df_titanic['age'] / 10) * 10
-    assert summarize_df_category_col(df_titanic, 'age_rank', '60以上', [60.0, 70.0, 80.0]) \
-           ['age_rank'].value_counts()['60以上'] > 0
+    df_titanic = sns.load_dataset("titanic")
+    df_titanic = df_titanic.replace("None", np.nan).dropna(subset=["age"])
+    df_titanic["age_rank"] = np.floor(df_titanic["age"] / 10) * 10
+    assert (
+        summarize_df_category_col(df_titanic, "age_rank", "60以上", [60.0, 70.0, 80.0])[
+            "age_rank"
+        ].value_counts()["60以上"]
+        > 0
+    )
 
     # set_tf_random_seed()
     set_tf_random_seed(seed=71)
 
     # add_label_kmeans_pca()
-    df_titanic = sns.load_dataset('titanic')
-    assert len(add_label_kmeans_pca(df_titanic, is_pca=False)['kmeans'].unique()) == 4
-    assert len(add_label_kmeans_pca(df_titanic, normal='', is_pca=False)['kmeans'].unique()) == 4
+    df_titanic = sns.load_dataset("titanic")
+    assert len(add_label_kmeans_pca(df_titanic, is_pca=False)["kmeans"].unique()) == 4
+    assert (
+        len(
+            add_label_kmeans_pca(df_titanic, normal="", is_pca=False)["kmeans"].unique()
+        )
+        == 4
+    )
 
     # save_sklearn_model_info()
     def _test_save_sklearn_model_info():
@@ -1131,14 +1369,18 @@ def test_func():
         from sklearn.ensemble import RandomForestClassifier
 
         # アヤメのデータ
-        df_iris = sns.load_dataset('iris')
-        X = df_iris[['sepal_length', 'sepal_width', 'petal_length', 'petal_width']]
-        y = LabelEncoder().fit_transform(df_iris['species'])
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y)
+        df_iris = sns.load_dataset("iris")
+        X = df_iris[["sepal_length", "sepal_width", "petal_length", "petal_width"]]
+        y = LabelEncoder().fit_transform(df_iris["species"])
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+            X, y
+        )
 
         def _train(_X_train, _y_train):
             # X_train 前処理
-            preprocess_pipeline = Pipeline(steps=[("standard_scaler", StandardScaler())])
+            preprocess_pipeline = Pipeline(
+                steps=[("standard_scaler", StandardScaler())]
+            )
             X_preprocessed = preprocess_pipeline.fit_transform(_X_train)
 
             # sklearn_model
@@ -1146,24 +1388,32 @@ def test_func():
             model.fit(X_preprocessed, _y_train)
 
             # データ保存
-            training_info = {"training_data": "iris",
-                             "model_type": "RandomForestClassifier",
-                             "hyper_pram": "default"}
-            model_info, model_info_filepath = save_sklearn_model_info(model, training_info,
-                                                                      preprocess_pipeline=preprocess_pipeline,
-                                                                      output_path=r'D:\work\02_keras_py\experiment\01_code_test\output_test\sklearn_model\iris_rf.joblib'
-                                                                      )
+            training_info = {
+                "training_data": "iris",
+                "model_type": "RandomForestClassifier",
+                "hyper_pram": "default",
+            }
+            model_info, model_info_filepath = save_sklearn_model_info(
+                model,
+                training_info,
+                preprocess_pipeline=preprocess_pipeline,
+                output_path=r"D:\work\02_keras_py\experiment\01_code_test\output_test\sklearn_model\iris_rf.joblib",
+            )
             return model_info, model_info_filepath
 
         def _predict(model_info, _X_test):
             # X_test 前処理
-            preprocess_pipeline = model_info['preprocess_pipeline']
-            X_preprocessed = _X_test if preprocess_pipeline is None else preprocess_pipeline.fit_transform(_X_test)
+            preprocess_pipeline = model_info["preprocess_pipeline"]
+            X_preprocessed = (
+                _X_test
+                if preprocess_pipeline is None
+                else preprocess_pipeline.fit_transform(_X_test)
+            )
 
             # モデルロード
-            model = model_info['trained_model']
+            model = model_info["trained_model"]
             pred = model.predict(X_preprocessed)
-            print('pred:', pred)
+            print("pred:", pred)
 
         # モデル作成
         model_info, model_info_filepath = _train(X_train, y_train)
@@ -1176,4 +1426,5 @@ def test_func():
         print(load_data)
         _predict(load_data, X_test[0:5])
         return
+
     _test_save_sklearn_model_info()
